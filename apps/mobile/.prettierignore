@@ -1,0 +1,8 @@
+node_modules/
+mockups_html/
+.expo/
+dist/
+android/
+ios/
+pnpm-lock.yaml
+babel.config.ts 

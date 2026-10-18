@@ -7,6 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
+    "backgroundColor": "#f8fafc",
     "ios": {
       "icon": "./assets/expo.icon"
     },
@@ -20,8 +21,17 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
+      "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "name": "Bowling Services",
+      "shortName": "Bowling",
+      "description": "Gestión técnica de mantenciones de maquinaria para Bowling Services",
+      "themeColor": "#07162c",
+      "backgroundColor": "#07162c",
+      "display": "standalone",
+      "orientation": "portrait",
+      "lang": "es"
     },
     "plugins": [
       "expo-router",

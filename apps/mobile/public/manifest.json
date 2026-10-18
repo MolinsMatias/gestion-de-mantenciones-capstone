@@ -1,0 +1,30 @@
+{
+  "name": "Bowling Services",
+  "short_name": "Bowling",
+  "description": "Gestión técnica de mantenciones de maquinaria para Bowling Services",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#07162c",
+  "theme_color": "#07162c",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "48x48 32x32 16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

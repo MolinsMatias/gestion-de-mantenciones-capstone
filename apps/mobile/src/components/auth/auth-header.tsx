@@ -7,12 +7,23 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const bgImage = require('@/assets/images/bowling-bg.jpg');
 const logoImage = require('@/assets/images/logo.png');
 
-export function LoginHeader() {
+export interface AuthHeaderProps {
+  title?: string;
+  subtitle?: string;
+}
+
+export function AuthHeader({
+  title = 'Bienvenido',
+  subtitle = 'Sistema de gestión de mantenciones',
+}: AuthHeaderProps) {
   const insets = useSafeAreaInsets();
   const { height: screenHeight } = useWindowDimensions();
 
   // Altura proporcional que muestra más imagen de bowling (~42-44% de pantalla)
   const headerHeight = Math.min(380, Math.max(300, Math.round(screenHeight * 0.43) + insets.top));
+
+  // Ajustar ligeramente el tamaño si el título es más largo (ej. 'Restablecer contraseña')
+  const isLongTitle = title.length > 16;
 
   return (
     <View
@@ -46,12 +57,17 @@ export function LoginHeader() {
           contentFit="contain"
           accessibilityLabel="Bowling Service Electronics"
         />
-        <Text accessibilityRole="header" className="mt-3 text-center text-4xl font-bold text-white">
-          Bienvenido
+        <Text
+          accessibilityRole="header"
+          className={`mt-3 text-center font-bold text-white ${
+            isLongTitle ? 'text-3xl' : 'text-4xl'
+          }`}
+        >
+          {title}
         </Text>
-        <Text className="mt-1 text-center text-sm text-slate-300">
-          Sistema de gestión de mantenciones
-        </Text>
+        {subtitle ? (
+          <Text className="mt-1 text-center text-sm text-slate-300">{subtitle}</Text>
+        ) : null}
       </View>
     </View>
   );

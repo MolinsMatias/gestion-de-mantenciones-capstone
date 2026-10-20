@@ -1,5 +1,6 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 
+import { RESET_PASSWORD_REDIRECT_URL } from '@/constants/config';
 import { getSupabase } from '@/services/supabase';
 
 interface LoginTokens {
@@ -40,10 +41,14 @@ interface RecoveryResponse {
   maskedEmail: string | null;
 }
 
-export async function recoverPassword(run: string) {
+export async function recoverPassword(run: string, customRedirectTo?: string) {
   const supabase = getSupabase();
+  const redirectTo = customRedirectTo || RESET_PASSWORD_REDIRECT_URL;
   const { data, error } = await supabase.functions.invoke<RecoveryResponse>('recover-password', {
-    body: { run },
+    body: {
+      run,
+      redirectTo,
+    },
   });
 
   if (error) {
@@ -66,4 +71,44 @@ export async function recoverPassword(run: string) {
   }
 
   return data;
+}
+
+export async function signOut() {
+  const supabase = getSupabase();
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    throw new Error('No se pudo cerrar la sesión. Intenta nuevamente.');
+  }
+}
+
+export async function exchangeRecoveryCode(code: string) {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+  if (error) {
+    throw new Error('El enlace de recuperación ha expirado o no es válido.');
+  }
+  return data;
+}
+
+export async function setSessionFromTokens(accessToken: string, refreshToken: string) {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  });
+  if (error) {
+    throw new Error('No se pudo validar la sesión de recuperación.');
+  }
+  return data;
+}
+
+export async function updatePassword(newPassword: string) {
+  const supabase = getSupabase();
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) {
+    if (error.message.toLowerCase().includes('weak')) {
+      throw new Error('La contraseña debe tener al menos 6 caracteres.');
+    }
+    throw new Error('No se pudo actualizar la contraseña. Intenta nuevamente.');
+  }
 }

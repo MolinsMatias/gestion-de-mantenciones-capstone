@@ -135,12 +135,6 @@ export function RecoveryPasswordForm({
         ) : (
           /* Formulario para ingresar RUN */
           <>
-            <Text className="text-base font-bold text-slate-900">Recuperar contraseña</Text>
-            <Text className="mb-2.5 mt-0.5 text-xs text-slate-500">
-              Ingresa tu RUN registrado y te enviaremos las instrucciones a tu correo para
-              restablecer tu acceso.
-            </Text>
-
             {/* Campo RUN */}
             <Text className="mb-1 text-xs font-bold text-slate-800">RUN</Text>
             <View

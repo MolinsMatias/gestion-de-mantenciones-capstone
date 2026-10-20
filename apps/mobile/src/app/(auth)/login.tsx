@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { BackHandler, View } from 'react-native';
 
 import { LoginForm } from '@/components/auth/login-form';
-import { LoginHeader } from '@/components/auth/login-header';
+import { AuthHeader } from '@/components/auth/auth-header';
 import { RecoveryPasswordForm } from '@/components/auth/recovery-password-form';
 import { KeyboardScrollView } from '@/components/shared/keyboard-scroll-view';
 import { useAuth } from '@/providers/auth-provider';
@@ -107,8 +107,15 @@ export default function LoginScreen() {
         overScrollMode="never"
         showsVerticalScrollIndicator={false}
       >
-        {/* El encabezado se mantiene con altura fija sin recargar imágenes ni parpadear */}
-        <LoginHeader />
+        {/* El encabezado adapta su título según el modo de autenticación */}
+        <AuthHeader
+          title={authMode === 'recovery' ? 'Restablecer contraseña' : 'Bienvenido'}
+          subtitle={
+            authMode === 'recovery'
+              ? 'Ingresa tu RUN registrado y te enviaremos las instrucciones a tu correo para restablecer tu acceso.'
+              : 'Sistema de gestión de mantenciones'
+          }
+        />
 
         {/* El formulario conmuta de manera inmediata sin desvanecimientos a negro */}
         <View className="flex-1">

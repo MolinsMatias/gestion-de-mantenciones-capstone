@@ -418,3 +418,8 @@ enabled = true
 [functions.login-run]
 verify_jwt = false
 entrypoint = './functions/login-run/index.ts'
+
+# Recuperación de contraseña: envía correo de recuperación con rate limit y anti-enumeración.
+[functions.recover-password]
+verify_jwt = false
+entrypoint = './functions/recover-password/index.ts'

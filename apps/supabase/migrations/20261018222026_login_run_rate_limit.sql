@@ -2,13 +2,13 @@ begin;
 
 create schema if not exists private;
 
-create table private.login_attempt (
+create table if not exists private.login_attempt (
   bucket text primary key,
   window_started_at timestamptz not null default now(),
   attempts integer not null default 1 check (attempts > 0)
 );
 
-create index login_attempt_window_idx
+create index if not exists login_attempt_window_idx
   on private.login_attempt (window_started_at);
 
 alter table private.login_attempt enable row level security;
@@ -17,7 +17,7 @@ grant usage on schema private to service_role;
 grant select, insert, update, delete on private.login_attempt to service_role;
 
 -- Solo el backend puede consumir intentos. No se almacenan RUN ni contraseñas.
-create function public.consume_login_attempt(p_bucket text)
+create or replace function public.consume_login_attempt(p_bucket text)
 returns boolean
 language plpgsql
 security invoker

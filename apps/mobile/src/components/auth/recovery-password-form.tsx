@@ -1,15 +1,17 @@
-import { ArrowLeft, CheckCircle2, Mail, Send } from 'lucide-react-native';
+import { ArrowLeft, CheckCircle2, Send, User } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BowlingPinIcon } from '@/components/shared/icons/bowling-pin-icon';
+import { formatRun, validateRun } from '@/utils/run';
 
 export interface RecoveryPasswordFormProps {
-  onSubmit?: (data: { email: string }) => void;
+  onSubmit?: (data: { run: string }) => void;
   isLoading?: boolean;
   errorMessage?: string | null;
   isSuccess?: boolean;
+  maskedEmail?: string | null;
   onBackToLogin?: () => void;
   onResend?: () => void;
 }
@@ -19,16 +21,44 @@ export function RecoveryPasswordForm({
   isLoading = false,
   errorMessage = null,
   isSuccess = false,
+  maskedEmail = null,
   onBackToLogin,
   onResend,
 }: RecoveryPasswordFormProps) {
   const insets = useSafeAreaInsets();
-  const [email, setEmail] = useState('');
-  const [isFocusedEmail, setIsFocusedEmail] = useState(false);
+  const [run, setRun] = useState('');
+  const [isFocusedRun, setIsFocusedRun] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
+
+  const handleRunChange = (text: string) => {
+    const formatted = formatRun(text);
+    setRun(formatted);
+    if (runError) {
+      setRunError(null);
+    }
+  };
+
+  const handleRunBlur = () => {
+    setIsFocusedRun(false);
+    const trimmed = run.trim();
+    if (trimmed && !validateRun(trimmed)) {
+      setRunError('El RUN ingresado no es válido');
+    }
+  };
 
   const handleSubmit = () => {
     if (isLoading) return;
-    onSubmit?.({ email: email.trim() });
+    const trimmed = run.trim();
+    if (!trimmed) {
+      setRunError('Por favor ingresa tu RUN');
+      return;
+    }
+    if (!validateRun(trimmed)) {
+      setRunError('El RUN ingresado no es válido');
+      return;
+    }
+    setRunError(null);
+    onSubmit?.({ run: trimmed });
   };
 
   return (
@@ -59,9 +89,11 @@ export function RecoveryPasswordForm({
             </Text>
 
             <Text className="mt-1 text-center text-xs leading-relaxed text-slate-600">
-              Si la cuenta coincide con un usuario registrado, hemos enviado las instrucciones para
-              restablecer tu contraseña a{' '}
-              <Text className="font-semibold text-slate-900">{email || 'tu correo'}</Text>.
+              Hemos enviado las instrucciones para restablecer tu contraseña a{' '}
+              <Text className="font-semibold text-slate-900">
+                {maskedEmail || 'tu correo registrado'}
+              </Text>
+              .
             </Text>
 
             <Text className="mt-1.5 text-center text-[11px] text-slate-400">
@@ -101,41 +133,59 @@ export function RecoveryPasswordForm({
             ) : null}
           </View>
         ) : (
-          /* Formulario para ingresar correo */
+          /* Formulario para ingresar RUN */
           <>
             <Text className="text-base font-bold text-slate-900">Recuperar contraseña</Text>
             <Text className="mb-2.5 mt-0.5 text-xs text-slate-500">
-              Ingresa tu correo electrónico registrado y te enviaremos las instrucciones para
+              Ingresa tu RUN registrado y te enviaremos las instrucciones a tu correo para
               restablecer tu acceso.
             </Text>
 
-            {/* Campo Correo electrónico */}
-            <Text className="mb-1 text-xs font-bold text-slate-800">Correo electrónico</Text>
+            {/* Campo RUN */}
+            <Text className="mb-1 text-xs font-bold text-slate-800">RUN</Text>
             <View
               className={`flex-row items-center rounded-2xl border px-3 py-2 ${
-                isFocusedEmail ? 'border-brand-blue bg-blue-50' : 'border-slate-200 bg-slate-100'
+                runError
+                  ? 'border-red-400 bg-red-50/50'
+                  : isFocusedRun
+                    ? 'border-brand-blue bg-blue-50'
+                    : 'border-slate-200 bg-slate-100'
               }`}
             >
-              <Mail size={18} color={isFocusedEmail ? '#1769e6' : '#64748b'} strokeWidth={1.8} />
+              <User
+                size={18}
+                color={runError ? '#dc2626' : isFocusedRun ? '#1769e6' : '#64748b'}
+                strokeWidth={1.8}
+              />
               <TextInput
-                nativeID="recovery-password-email"
+                nativeID="recovery-password-run"
                 className="ml-2 flex-1 text-base text-slate-900"
-                placeholder="Ingresa tu correo"
+                placeholder="12.345.678-5"
                 placeholderTextColor="#94a3b8"
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
+                value={run}
+                onChangeText={handleRunChange}
+                autoCapitalize="characters"
                 autoCorrect={false}
-                keyboardType="email-address"
+                keyboardType="default"
+                autoComplete="username"
+                textContentType="username"
+                editable={!isLoading}
+                maxLength={12}
                 returnKeyType="done"
                 submitBehavior="submit"
                 underlineColorAndroid="transparent"
                 onSubmitEditing={handleSubmit}
-                onFocus={() => setIsFocusedEmail(true)}
-                onBlur={() => setIsFocusedEmail(false)}
-                accessibilityLabel="Correo electrónico"
+                onFocus={() => {
+                  setIsFocusedRun(true);
+                  setRunError(null);
+                }}
+                onBlur={handleRunBlur}
+                accessibilityLabel="RUN con dígito verificador"
               />
             </View>
+            {runError ? (
+              <Text className="ml-1 mt-1 text-xs font-medium text-red-600">{runError}</Text>
+            ) : null}
 
             {/* Mensaje de error si existe */}
             {errorMessage ? (

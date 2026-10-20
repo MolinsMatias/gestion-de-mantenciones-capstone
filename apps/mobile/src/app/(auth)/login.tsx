@@ -8,7 +8,7 @@ import { LoginHeader } from '@/components/auth/login-header';
 import { RecoveryPasswordForm } from '@/components/auth/recovery-password-form';
 import { KeyboardScrollView } from '@/components/shared/keyboard-scroll-view';
 import { useAuth } from '@/providers/auth-provider';
-import { signInWithRun } from '@/services/auth';
+import { recoverPassword, signInWithRun } from '@/services/auth';
 
 type AuthMode = 'login' | 'recovery';
 
@@ -21,6 +21,7 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isRecoverySuccess, setIsRecoverySuccess] = useState(false);
+  const [maskedEmail, setMaskedEmail] = useState<string | null>(null);
 
   // Conmutación inmediata entre formularios sin parpadeo ni desvanecimiento a negro
   const transitionTo = useCallback((nextMode: AuthMode) => {
@@ -30,6 +31,7 @@ export default function LoginScreen() {
 
   const handleBackToLogin = useCallback(() => {
     setIsRecoverySuccess(false);
+    setMaskedEmail(null);
     transitionTo('login');
   }, [transitionTo]);
 
@@ -64,14 +66,9 @@ export default function LoginScreen() {
     }
   };
 
-  const handleRecovery = async ({ email }: { email: string }) => {
-    if (!email) {
-      setErrorMessage('Por favor ingresa tu correo electrónico');
-      return;
-    }
-
-    if (!/\S+@\S+\.\S+/.test(email)) {
-      setErrorMessage('Por favor ingresa un correo electrónico válido');
+  const handleRecovery = async ({ run }: { run: string }) => {
+    if (!run) {
+      setErrorMessage('Por favor ingresa tu RUN con DV');
       return;
     }
 
@@ -79,10 +76,15 @@ export default function LoginScreen() {
     setIsLoading(true);
 
     try {
-      // Punto de integración con Supabase Auth (resetPasswordForEmail)
+      const response = await recoverPassword(run.trim());
+      setMaskedEmail(response?.maskedEmail ?? null);
       setIsRecoverySuccess(true);
-    } catch {
-      setErrorMessage('Ocurrió un error al procesar la solicitud. Intenta nuevamente.');
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Ocurrió un error al procesar la solicitud. Intenta nuevamente.',
+      );
     } finally {
       setIsLoading(false);
     }
@@ -123,6 +125,7 @@ export default function LoginScreen() {
               isLoading={isLoading}
               errorMessage={errorMessage}
               isSuccess={isRecoverySuccess}
+              maskedEmail={maskedEmail}
               onBackToLogin={handleBackToLogin}
               onResend={() => setIsRecoverySuccess(false)}
             />

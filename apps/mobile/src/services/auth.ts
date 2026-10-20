@@ -34,3 +34,36 @@ export async function signInWithRun(run: string, password: string) {
     throw new Error('No se pudo guardar la sesión. Intenta nuevamente.');
   }
 }
+
+interface RecoveryResponse {
+  message: string;
+  maskedEmail: string | null;
+}
+
+export async function recoverPassword(run: string) {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.functions.invoke<RecoveryResponse>('recover-password', {
+    body: { run },
+  });
+
+  if (error) {
+    if (error instanceof FunctionsHttpError) {
+      const status = error.context.status;
+      if (status === 429) {
+        throw new Error('Demasiados intentos. Espera 15 minutos antes de volver a intentar.');
+      }
+      if (status === 404) {
+        throw new Error('El RUN ingresado no corresponde a un usuario registrado.');
+      }
+      if (status === 403) {
+        throw new Error('La cuenta asociada a este RUN está inactiva. Contacta al administrador.');
+      }
+      if (status === 400) {
+        throw new Error('Ingresa un RUN con DV válido.');
+      }
+    }
+    throw new Error('No se pudo procesar la solicitud de recuperación. Intenta nuevamente.');
+  }
+
+  return data;
+}

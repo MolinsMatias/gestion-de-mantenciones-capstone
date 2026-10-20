@@ -26,6 +26,12 @@ export const Colors = {
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
+/** Colores de marca para props que no admiten clases (p. ej. `color` de iconos). Reflejan tailwind.config.js. */
+export const BrandColors = {
+  blue: '#1769e6',
+  iconInactive: '#64748b',
+} as const;
+
 export const Fonts = Platform.select({
   ios: {
     /** iOS `UIFontDescriptorSystemDesignDefault` */

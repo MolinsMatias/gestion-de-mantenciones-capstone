@@ -1,9 +1,7 @@
-import { AlertCircle, ArrowLeft, CheckCircle2, Eye, EyeOff, Lock } from 'lucide-react-native';
+import { AlertCircle, ArrowLeft, CheckCircle2, Eye, EyeOff, Lock, Send } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import { BowlingPinIcon } from '@/components/shared/icons/bowling-pin-icon';
 
 export interface ResetPasswordFormProps {
   onSubmit: (password: string) => Promise<void> | void;
@@ -338,7 +336,7 @@ export function ResetPasswordForm({
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
               <>
-                <BowlingPinIcon size={18} color="#ffffff" />
+                <Send size={18} color="#ffffff" strokeWidth={2} />
                 <Text className="text-base font-semibold text-white">Guardar nueva contraseña</Text>
               </>
             )}

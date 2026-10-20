@@ -13,7 +13,20 @@ export default function AppLayout() {
   return (
     <Tabs
       tabBar={(props) => <AppTabs {...props} />}
-      screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: '#f8fafc' } }}
+      screenOptions={{
+        headerShown: false,
+        animation: 'none',
+        sceneStyle: { backgroundColor: '#f8fafc' },
+        tabBarStyle: {
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          elevation: 0,
+          borderTopWidth: 0,
+          backgroundColor: 'transparent',
+        },
+      }}
     >
       {/* El orden define la posición en la barra; `escanear` ocupa el botón central. */}
       <Tabs.Screen name="index" options={{ title: 'Inicio' }} />

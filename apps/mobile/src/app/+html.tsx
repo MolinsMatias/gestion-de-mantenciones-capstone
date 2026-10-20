@@ -48,9 +48,10 @@ html, body, #root, [dir="auto"], input, textarea, button, select {
   font-family: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
 }
 
-/* Desactivar resaltado táctil */
+/* Desactivar resaltado táctil y eliminar el retraso de 300ms en dispositivos táctiles */
 * {
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 /* El documento aporta un fondo de respaldo; cada pantalla pinta sus propias áreas. */
@@ -59,7 +60,7 @@ html, body {
   width: 100%;
   margin: 0;
   padding: 0;
-  background-color: #07162c;
+  background-color: #f8fafc;
   overflow: hidden;
   overscroll-behavior-y: none;
   overscroll-behavior-x: none;
@@ -71,7 +72,7 @@ html, body {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background-color: #ffffff;
+  background-color: #f8fafc;
 }
 
 /* Evitar selección accidental de textos como en app nativa */

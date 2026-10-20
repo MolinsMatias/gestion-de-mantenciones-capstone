@@ -13,7 +13,7 @@ export function ComingSoonScreen({ title }: ComingSoonScreenProps) {
   return (
     <View
       className="flex-1 items-center justify-center bg-slate-50 px-6"
-      style={{ paddingTop: insets.top }}
+      style={{ paddingTop: insets.top, paddingBottom: insets.bottom + 80 }}
     >
       <Text accessibilityRole="header" className="text-xl font-bold text-slate-800">
         {title}

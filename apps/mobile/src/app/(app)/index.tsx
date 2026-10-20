@@ -28,7 +28,7 @@ export default function HomeScreen() {
   return (
     <View
       className="flex-1 items-center justify-center bg-slate-50 px-6"
-      style={{ paddingTop: insets.top }}
+      style={{ paddingTop: insets.top, paddingBottom: insets.bottom + 80 }}
     >
       <View className="w-full max-w-sm rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm">
         <Text className="text-center text-xl font-bold text-slate-800">Pantalla de Inicio</Text>

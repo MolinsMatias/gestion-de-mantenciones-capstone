@@ -15,9 +15,7 @@ export function getSupabase(): SupabaseClient {
   if (client) return client;
 
   if (!supabaseUrl || !supabasePublishableKey) {
-    throw new Error(
-      'Configura la URL y la clave Publishable de Supabase en apps/mobile/.env.local.',
-    );
+    throw new Error('Configura la URL y la clave Publishable de Supabase en apps/mobile/.env');
   }
 
   if (!supabasePublishableKey.startsWith('sb_publishable_')) {

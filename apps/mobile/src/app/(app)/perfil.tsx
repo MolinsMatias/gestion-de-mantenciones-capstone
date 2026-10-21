@@ -1,23 +1,17 @@
 import { useRouter } from 'expo-router';
 import { LogOut } from 'lucide-react-native';
 import React, { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/providers/auth-provider';
 import { signOut } from '@/services/auth';
+import { getInicialesUsuario, getNombreCompleto, getNombreRol } from '@/services/usuario';
 
 export default function PerfilScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
@@ -26,13 +20,21 @@ export default function PerfilScreen() {
       await signOut();
       router.replace('/(auth)/login');
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'No se pudo cerrar la sesión.';
+      const message = error instanceof Error ? error.message : 'No se pudo cerrar la sesión.';
       Alert.alert('Error', message);
     } finally {
       setIsLoggingOut(false);
     }
   };
+
+  const nombreCompleto = getNombreCompleto(
+    profile,
+    session?.user?.user_metadata,
+    session?.user?.email,
+  );
+  const iniciales = getInicialesUsuario(profile, session?.user?.email);
+  const rol = getNombreRol(profile?.rol_id);
+  const runFormateado = profile?.run && profile?.dv ? `RUN: ${profile.run}-${profile.dv}` : null;
 
   return (
     <View className="flex-1 bg-[#f8fafc]">
@@ -56,22 +58,19 @@ export default function PerfilScreen() {
             Información de la cuenta y configuración de sesión
           </Text>
 
-          {/* Tarjeta de usuario */}
+          {/* Tarjeta de usuario con datos dinámicos */}
           <View className="mt-6 flex-row items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <View className="h-14 w-14 items-center justify-center rounded-full border border-blue-200 bg-blue-50">
-              <Text className="text-lg font-bold text-blue-700">MM</Text>
+              <Text className="text-lg font-bold text-blue-700">{iniciales}</Text>
             </View>
             <View className="flex-1">
-              <Text className="text-base font-bold text-slate-900">
-                Matías Molins
-              </Text>
-              <Text className="text-xs font-medium text-slate-500">
-                Técnico de Mantención
-              </Text>
+              <Text className="text-base font-bold text-slate-900">{nombreCompleto}</Text>
+              <Text className="text-xs font-medium text-slate-500">{rol}</Text>
+              {runFormateado ? (
+                <Text className="mt-0.5 text-xs text-slate-400">{runFormateado}</Text>
+              ) : null}
               {session?.user?.email ? (
-                <Text className="mt-0.5 text-xs text-slate-400">
-                  {session.user.email}
-                </Text>
+                <Text className="mt-0.5 text-xs text-slate-400">{session.user.email}</Text>
               ) : null}
             </View>
           </View>
@@ -91,9 +90,7 @@ export default function PerfilScreen() {
               ) : (
                 <>
                   <LogOut size={18} color="#dc2626" strokeWidth={2} />
-                  <Text className="text-sm font-semibold text-red-600">
-                    Cerrar sesión
-                  </Text>
+                  <Text className="text-sm font-semibold text-red-600">Cerrar sesión</Text>
                 </>
               )}
             </Pressable>

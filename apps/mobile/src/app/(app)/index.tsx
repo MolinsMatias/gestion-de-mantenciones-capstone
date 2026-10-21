@@ -17,6 +17,9 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAuth } from '@/providers/auth-provider';
+import { getNombreSaludo } from '@/services/usuario';
+
 const bowlingBg = require('@/assets/images/bowling-bg.jpg');
 
 interface BitacoraItem {
@@ -66,6 +69,9 @@ const BITACORA_ITEMS: BitacoraItem[] = [
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { session, profile } = useAuth();
+
+  const nombreSaludo = getNombreSaludo(profile, session?.user?.user_metadata, session?.user?.email);
 
   const handleNewIntervention = () => {
     router.push('/(app)/escanear');
@@ -123,7 +129,9 @@ export default function HomeScreen() {
         >
           <View className="w-full max-w-xl flex-row items-center justify-between self-center px-5">
             <View>
-              <Text className="text-xl font-bold tracking-tight text-white">¡Hola, Matías!</Text>
+              <Text className="text-xl font-bold tracking-tight text-white">
+                ¡Hola, {nombreSaludo}!
+              </Text>
               <Text className="mt-0.5 text-xs text-slate-300">Mantén la operación en marcha</Text>
             </View>
 
@@ -215,9 +223,6 @@ export default function HomeScreen() {
                 <View className="h-2 w-2 rounded-full bg-emerald-500" />
                 <Text className="text-xs font-medium text-slate-700">13/14 pistas operativas</Text>
               </View>
-              <Text className="text-[11px] font-medium text-slate-500">
-                Turno mañana • En curso
-              </Text>
             </View>
           </View>
 

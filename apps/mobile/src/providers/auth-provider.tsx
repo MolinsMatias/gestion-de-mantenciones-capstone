@@ -1,23 +1,61 @@
 import type { Session } from '@supabase/supabase-js';
 import React, {
   createContext,
-  type PropsWithChildren,
+  useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
+  type PropsWithChildren,
 } from 'react';
 
 import { getSupabase, isSupabaseConfigured } from '@/services/supabase';
+import {
+  clearCachedPerfilUsuario,
+  fetchPerfilUsuario,
+  getCachedPerfilUsuario,
+} from '@/services/usuario';
+import type { PerfilUsuario } from '@/types/usuario';
 
 interface AuthState {
   session: Session | null;
+  profile: PerfilUsuario | null;
   isLoading: boolean;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [state, setState] = useState<AuthState>({ session: null, isLoading: isSupabaseConfigured });
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<PerfilUsuario | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(isSupabaseConfigured);
+  const loadedUserIdRef = useRef<string | null>(null);
+
+  const loadProfile = useCallback(async (targetUserId: string, force = false) => {
+    if (!force && loadedUserIdRef.current === targetUserId) {
+      return;
+    }
+    loadedUserIdRef.current = targetUserId;
+
+    // 1. Cargar caché inmediata para no bloquear
+    const cached = await getCachedPerfilUsuario();
+    if (cached && cached.id === targetUserId) {
+      setProfile(cached);
+    }
+    // 2. Traer versión fresca de Supabase (deduplicada en vuelo)
+    const freshProfile = await fetchPerfilUsuario(targetUserId);
+    if (freshProfile) {
+      setProfile(freshProfile);
+    }
+  }, []);
+
+  const userId = session?.user?.id;
+  const refreshProfile = useCallback(async () => {
+    if (userId) {
+      await loadProfile(userId, true);
+    }
+  }, [loadProfile, userId]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -27,29 +65,63 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       receivedAuthEvent = true;
-      if (mounted) setState({ session, isLoading: false });
+      if (!mounted) return;
+
+      setSession(currentSession);
+      setIsLoading(false);
+
+      if (currentSession?.user?.id) {
+        if (loadedUserIdRef.current !== currentSession.user.id) {
+          void loadProfile(currentSession.user.id);
+        }
+      } else {
+        loadedUserIdRef.current = null;
+        setProfile(null);
+        void clearCachedPerfilUsuario();
+      }
     });
 
     void supabase.auth
       .getSession()
       .then(({ data, error }) => {
         if (mounted && !receivedAuthEvent) {
-          setState({ session: error ? null : data.session, isLoading: false });
+          const activeSession = error ? null : data.session;
+          setSession(activeSession);
+          setIsLoading(false);
+          if (activeSession?.user?.id && loadedUserIdRef.current !== activeSession.user.id) {
+            void loadProfile(activeSession.user.id);
+          }
         }
       })
       .catch(() => {
-        if (mounted && !receivedAuthEvent) setState({ session: null, isLoading: false });
+        if (mounted && !receivedAuthEvent) {
+          loadedUserIdRef.current = null;
+          setSession(null);
+          setProfile(null);
+          setIsLoading(false);
+        }
       });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [loadProfile]);
 
-  return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{
+        session,
+        profile,
+        isLoading,
+        refreshProfile,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

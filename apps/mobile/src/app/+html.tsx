@@ -60,7 +60,7 @@ html, body {
   width: 100%;
   margin: 0;
   padding: 0;
-  background-color: #f8fafc;
+  background-color: #07172C;
   overflow: hidden;
   overscroll-behavior-y: none;
   overscroll-behavior-x: none;

@@ -71,7 +71,7 @@ export function AppTabs({ state, navigation }: BottomTabBarProps) {
 
   return (
     // La zona transparente sobre la barra aloja la parte elevada del botón central sin crear un hueco negro.
-    <View style={{ pointerEvents: 'box-none', overflow: 'visible' }}>
+    <View pointerEvents="box-none" style={{ overflow: 'visible' }}>
       <View
         className="rounded-t-[28px] bg-white"
         style={[{ paddingBottom: Math.max(insets.bottom, 8) }, shadowBar]}
@@ -101,14 +101,17 @@ export function AppTabs({ state, navigation }: BottomTabBarProps) {
                 accessibilityState={{ selected: isFocused }}
                 onPress={() => emitPress(route.key, route.name, route.params)}
                 className="min-h-[56px] flex-1 items-center justify-center gap-1 active:opacity-70"
+                style={{ cursor: 'pointer' }}
               >
-                <Icon size={ICON_SIZE} color={color} strokeWidth={isFocused ? 2.2 : 1.8} />
-                <Text
-                  className={`text-xs ${isFocused ? 'font-bold text-brand-blue' : 'font-medium text-slate-500'}`}
-                  numberOfLines={1}
-                >
-                  {item.label}
-                </Text>
+                <View pointerEvents="none" className="items-center justify-center gap-1">
+                  <Icon size={ICON_SIZE} color={color} strokeWidth={isFocused ? 2.2 : 1.8} />
+                  <Text
+                    className={`text-xs ${isFocused ? 'font-bold text-brand-blue' : 'font-medium text-slate-500'}`}
+                    numberOfLines={1}
+                  >
+                    {item.label}
+                  </Text>
+                </View>
               </Pressable>
             );
           })}
@@ -117,8 +120,16 @@ export function AppTabs({ state, navigation }: BottomTabBarProps) {
 
       {primaryRoute && primaryIndex >= 0 ? (
         <View
-          className="absolute inset-x-0 items-center"
-          style={{ top: -PRIMARY_LIFT, pointerEvents: 'box-none', zIndex: 10 }}
+          pointerEvents="box-none"
+          className="absolute items-center"
+          style={{
+            top: -PRIMARY_LIFT,
+            left: '50%',
+            marginLeft: -PRIMARY_SIZE / 2,
+            width: PRIMARY_SIZE,
+            height: PRIMARY_SIZE,
+            zIndex: 10,
+          }}
         >
           <Pressable
             accessibilityRole="tab"
@@ -126,9 +137,14 @@ export function AppTabs({ state, navigation }: BottomTabBarProps) {
             accessibilityState={{ selected: state.index === primaryIndex }}
             onPress={() => emitPress(primaryRoute.key, primaryRoute.name, primaryRoute.params)}
             className="items-center justify-center rounded-full border-4 border-white bg-brand-blue active:bg-blue-700"
-            style={[{ width: PRIMARY_SIZE, height: PRIMARY_SIZE }, shadowPrimary]}
+            style={[
+              { width: PRIMARY_SIZE, height: PRIMARY_SIZE, cursor: 'pointer' },
+              shadowPrimary,
+            ]}
           >
-            <ScanQrCode size={28} color="#ffffff" strokeWidth={2} />
+            <View pointerEvents="none" className="items-center justify-center">
+              <ScanQrCode size={28} color="#ffffff" strokeWidth={2} />
+            </View>
           </Pressable>
         </View>
       ) : null}

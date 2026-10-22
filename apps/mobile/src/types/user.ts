@@ -1,4 +1,4 @@
-export interface PerfilUsuario {
+export interface UserProfile {
   id: string;
   run: number;
   dv: string;

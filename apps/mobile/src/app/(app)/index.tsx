@@ -18,9 +18,50 @@ import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/providers/auth-provider';
-import { getNombreSaludo } from '@/services/usuario';
+import { LocalBottomSheet } from '@/components/local/local-bottom-sheet';
+import { getGreetingName } from '@/services/user';
+import type { Local } from '@/types/local';
 
 const bowlingBg = require('@/assets/images/bowling-bg.jpg');
+
+const AVAILABLE_LOCALS: Local[] = [
+  {
+    id: 'mampato-las-condes',
+    name: 'Mampato - Las Condes',
+    commune: 'Las Condes, Santiago',
+    address: 'Av. Las Condes 12340',
+    totalLanes: 14,
+    operationalLanes: 13,
+    machineModel: 'Brunswick GS-X',
+  },
+  {
+    id: 'bowling-plaza-vespucio',
+    name: 'Bowling Mallplaza Vespucio',
+    commune: 'La Florida, Santiago',
+    address: 'Av. Vicuña Mackenna 7110',
+    totalLanes: 16,
+    operationalLanes: 15,
+    machineModel: 'AMF 82-70 Solid State',
+  },
+  {
+    id: 'bowling-parque-arauco',
+    name: 'Bowling Parque Arauco',
+    commune: 'Las Condes, Santiago',
+    address: 'Av. Kennedy 5413',
+    totalLanes: 12,
+    operationalLanes: 12,
+    machineModel: 'Brunswick GS-X NextGen',
+  },
+  {
+    id: 'bowling-plaza-oeste',
+    name: 'Bowling Mallplaza Oeste',
+    commune: 'Cerrillos, Santiago',
+    address: 'Av. Américo Vespucio 1501',
+    totalLanes: 18,
+    operationalLanes: 16,
+    machineModel: 'Brunswick GS-98',
+  },
+];
 
 interface BitacoraItem {
   id: string;
@@ -71,7 +112,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { session, profile } = useAuth();
 
-  const nombreSaludo = getNombreSaludo(profile, session?.user?.user_metadata, session?.user?.email);
+  const greetingName = getGreetingName(profile, session?.user?.user_metadata, session?.user?.email);
 
   const handleNewIntervention = () => {
     router.push('/(app)/escanear');
@@ -89,6 +130,8 @@ export default function HomeScreen() {
   });
 
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [activeLocal, setActiveLocal] = useState<Local>(AVAILABLE_LOCALS[0]);
+  const [isLocalSheetOpen, setIsLocalSheetOpen] = useState(false);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') {
@@ -130,7 +173,7 @@ export default function HomeScreen() {
           <View className="w-full max-w-xl flex-row items-center justify-between self-center px-5">
             <View>
               <Text className="text-xl font-bold tracking-tight text-white">
-                ¡Hola, {nombreSaludo}!
+                ¡Hola, {greetingName}!
               </Text>
               <Text className="mt-0.5 text-xs text-slate-300">Mantén la operación en marcha</Text>
             </View>
@@ -192,7 +235,7 @@ export default function HomeScreen() {
                 <View className="flex-row items-center gap-1 rounded-full bg-white/90 px-2.5 py-0.5 shadow-sm">
                   <MapPin size={12} color="#2563eb" strokeWidth={2.2} />
                   <Text className="text-[10px] font-semibold text-slate-800">
-                    Mampato - Las Condes
+                    {activeLocal.name}
                   </Text>
                 </View>
               </View>
@@ -203,12 +246,15 @@ export default function HomeScreen() {
                   <Text className="text-[11px] font-medium text-slate-200">
                     Sala de Bowling Activa
                   </Text>
-                  <Text className="text-xs font-semibold text-white">14 Pistas Brunswick GS-X</Text>
+                  <Text className="text-xs font-semibold text-white">
+                    {activeLocal.totalLanes} Pistas {activeLocal.machineModel}
+                  </Text>
                 </View>
 
                 <Pressable
+                  onPress={() => setIsLocalSheetOpen(true)}
                   accessibilityRole="button"
-                  accessibilityLabel="Cambiar recinto"
+                  accessibilityLabel="Cambiar sala de bowling activa"
                   className="rounded-lg border border-white/20 bg-white/20 px-2.5 py-1 active:bg-white/30"
                   style={{ cursor: 'pointer' }}
                 >
@@ -220,8 +266,16 @@ export default function HomeScreen() {
             {/* Franja inferior de estado */}
             <View className="flex-row items-center justify-between border-t border-slate-100 bg-slate-50 px-3.5 py-2">
               <View className="flex-row items-center gap-1.5">
-                <View className="h-2 w-2 rounded-full bg-emerald-500" />
-                <Text className="text-xs font-medium text-slate-700">13/14 pistas operativas</Text>
+                <View
+                  className={`h-2 w-2 rounded-full ${
+                    activeLocal.operationalLanes === activeLocal.totalLanes
+                      ? 'bg-emerald-500'
+                      : 'bg-amber-500'
+                  }`}
+                />
+                <Text className="text-xs font-medium text-slate-700">
+                  {activeLocal.operationalLanes}/{activeLocal.totalLanes} pistas operativas
+                </Text>
               </View>
             </View>
           </View>
@@ -536,6 +590,15 @@ export default function HomeScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Bottom Sheet accesible para cambiar de recinto */}
+      <LocalBottomSheet
+        visible={isLocalSheetOpen}
+        locals={AVAILABLE_LOCALS}
+        activeLocalId={activeLocal.id}
+        onSelect={(newLocal) => setActiveLocal(newLocal)}
+        onClose={() => setIsLocalSheetOpen(false)}
+      />
     </View>
   );
 }

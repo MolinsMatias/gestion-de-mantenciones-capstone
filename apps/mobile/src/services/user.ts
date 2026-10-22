@@ -1,23 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getSupabase } from '@/services/supabase';
-import type { PerfilUsuario } from '@/types/usuario';
+import type { UserProfile } from '@/types/user';
 
-const PERFIL_CACHE_KEY = '@bowling_services/perfil_usuario';
+const USER_PROFILE_CACHE_KEY = '@bowling_services/user_profile';
 
-let activeFetchPromise: Promise<PerfilUsuario | null> | null = null;
+let activeFetchPromise: Promise<UserProfile | null> | null = null;
 let activeFetchUserId: string | null = null;
 
 /**
- * Obtiene el perfil del usuario desde Supabase consultando la tabla `usuario`
- * con los campos reales de la base de datos:
- * id, run, dv, nombre, segundo_nombre, apellido_paterno, apellido_materno, rol_id, activo, created_at.
- * Incluye deduplicación en vuelo y lectura en almacenamiento local (AsyncStorage) para funcionamiento offline.
+ * Fetches user profile from Supabase with in-flight request deduplication
+ * and local offline caching (AsyncStorage).
  */
-export async function fetchPerfilUsuario(userId: string): Promise<PerfilUsuario | null> {
+export async function fetchUserProfile(userId: string): Promise<UserProfile | null> {
   if (!userId) return null;
 
-  // Si ya hay una petición en curso para este mismo usuario, reutilizar la misma promesa
   if (activeFetchPromise && activeFetchUserId === userId) {
     return activeFetchPromise;
   }
@@ -30,17 +27,17 @@ export async function fetchPerfilUsuario(userId: string): Promise<PerfilUsuario 
       const { data, error } = await supabase
         .from('usuario')
         .select(
-          'id, run, dv, nombre, segundo_nombre, apellido_paterno, apellido_materno, rol_id, activo',
+          'id, run, dv, nombre, segundo_nombre, apellido_paterno, apellido_materno, rol_id, activo, created_at',
         )
         .eq('id', userId)
         .maybeSingle();
 
       if (error) {
-        console.warn('Error al consultar perfil de usuario en Supabase:', error.message);
+        console.warn('Error fetching user profile from Supabase:', error.message);
       }
 
       if (!error && data) {
-        const perfil: PerfilUsuario = {
+        const profile: UserProfile = {
           id: data.id,
           run: data.run,
           dv: data.dv,
@@ -50,61 +47,61 @@ export async function fetchPerfilUsuario(userId: string): Promise<PerfilUsuario 
           apellido_materno: data.apellido_materno ?? null,
           rol_id: data.rol_id,
           activo: Boolean(data.activo),
+          created_at: data.created_at,
         };
 
-        // Guardar en caché local para soporte sin conexión
         try {
-          await AsyncStorage.setItem(PERFIL_CACHE_KEY, JSON.stringify(perfil));
+          await AsyncStorage.setItem(USER_PROFILE_CACHE_KEY, JSON.stringify(profile));
         } catch (cacheErr) {
-          console.warn('No se pudo guardar el perfil en caché local:', cacheErr);
+          console.warn('Could not save user profile to local cache:', cacheErr);
         }
 
-        return perfil;
+        return profile;
       }
-    } catch {
-      // Si la llamada de red falla (modo offline), intentar cargar desde caché local
+    } catch (err) {
+      console.warn('Network error fetching profile, falling back to cache:', err);
     } finally {
       activeFetchPromise = null;
       activeFetchUserId = null;
     }
 
-    return await getCachedPerfilUsuario();
+    return await getCachedUserProfile();
   })();
 
   return activeFetchPromise;
 }
 
 /**
- * Lee el perfil almacenado en caché local cuando no hay conexión.
+ * Retrieves cached user profile from AsyncStorage for offline usage.
  */
-export async function getCachedPerfilUsuario(): Promise<PerfilUsuario | null> {
+export async function getCachedUserProfile(): Promise<UserProfile | null> {
   try {
-    const cached = await AsyncStorage.getItem(PERFIL_CACHE_KEY);
+    const cached = await AsyncStorage.getItem(USER_PROFILE_CACHE_KEY);
     if (cached) {
-      return JSON.parse(cached) as PerfilUsuario;
+      return JSON.parse(cached) as UserProfile;
     }
   } catch (err) {
-    console.warn('Error leyendo perfil de caché local:', err);
+    console.warn('Error reading user profile from cache:', err);
   }
   return null;
 }
 
 /**
- * Limpia el perfil de la caché al cerrar sesión.
+ * Clears user profile from local cache on logout.
  */
-export async function clearCachedPerfilUsuario(): Promise<void> {
+export async function clearCachedUserProfile(): Promise<void> {
   try {
-    await AsyncStorage.removeItem(PERFIL_CACHE_KEY);
+    await AsyncStorage.removeItem(USER_PROFILE_CACHE_KEY);
   } catch (err) {
-    console.warn('Error al limpiar perfil de caché local:', err);
+    console.warn('Error clearing user profile from cache:', err);
   }
 }
 
 /**
- * Extrae el primer nombre para el saludo de bienvenida con fallbacks limpios.
+ * Returns the first name for user greetings with fallbacks.
  */
-export function getNombreSaludo(
-  profile: PerfilUsuario | null,
+export function getGreetingName(
+  profile: UserProfile | null,
   userMetadata?: Record<string, unknown> | null,
   email?: string | null,
 ): string {
@@ -125,23 +122,23 @@ export function getNombreSaludo(
 }
 
 /**
- * Retorna el nombre completo concatenando nombre, segundo_nombre, apellido_paterno y apellido_materno.
+ * Returns full concatenated user name.
  */
-export function getNombreCompleto(
-  profile: PerfilUsuario | null,
+export function getFullName(
+  profile: UserProfile | null,
   userMetadata?: Record<string, unknown> | null,
   email?: string | null,
 ): string {
   if (profile) {
-    const partes = [
+    const parts = [
       profile.nombre,
       profile.segundo_nombre,
       profile.apellido_paterno,
       profile.apellido_materno,
     ].filter(Boolean);
 
-    if (partes.length > 0) {
-      return partes.join(' ');
+    if (parts.length > 0) {
+      return parts.join(' ');
     }
   }
 
@@ -158,9 +155,9 @@ export function getNombreCompleto(
 }
 
 /**
- * Obtiene las iniciales del usuario para avatares a partir de nombre y apellido_paterno.
+ * Returns up to 2 uppercase initials for avatar circles.
  */
-export function getInicialesUsuario(profile: PerfilUsuario | null, email?: string | null): string {
+export function getUserInitials(profile: UserProfile | null, email?: string | null): string {
   const n = profile?.nombre?.trim();
   const ap = profile?.apellido_paterno?.trim();
   if (n && ap) {
@@ -176,10 +173,10 @@ export function getInicialesUsuario(profile: PerfilUsuario | null, email?: strin
 }
 
 /**
- * Mapea el identificador de rol a su etiqueta legible.
+ * Maps numeric or string role identifier to human-readable label.
  */
-export function getNombreRol(rolId: number | string | undefined | null): string {
-  if (rolId === 1 || rolId === '1' || rolId === 'admin') return 'Administrador';
-  if (rolId === 2 || rolId === '2' || rolId === 'tecnico') return 'Técnico de Mantención';
+export function getRoleName(roleId: number | string | undefined | null): string {
+  if (roleId === 1 || roleId === '1' || roleId === 'admin') return 'Administrador';
+  if (roleId === 2 || roleId === '2' || roleId === 'tecnico') return 'Técnico de Mantención';
   return 'Técnico de Mantención';
 }

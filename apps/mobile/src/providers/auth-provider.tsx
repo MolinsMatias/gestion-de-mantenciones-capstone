@@ -10,16 +10,12 @@ import React, {
 } from 'react';
 
 import { getSupabase, isSupabaseConfigured } from '@/services/supabase';
-import {
-  clearCachedPerfilUsuario,
-  fetchPerfilUsuario,
-  getCachedPerfilUsuario,
-} from '@/services/usuario';
-import type { PerfilUsuario } from '@/types/usuario';
+import { clearCachedUserProfile, fetchUserProfile, getCachedUserProfile } from '@/services/user';
+import type { UserProfile } from '@/types/user';
 
 interface AuthState {
   session: Session | null;
-  profile: PerfilUsuario | null;
+  profile: UserProfile | null;
   isLoading: boolean;
   refreshProfile: () => Promise<void>;
 }
@@ -28,7 +24,7 @@ const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<PerfilUsuario | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(isSupabaseConfigured);
   const loadedUserIdRef = useRef<string | null>(null);
 
@@ -39,12 +35,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     loadedUserIdRef.current = targetUserId;
 
     // 1. Cargar caché inmediata para no bloquear
-    const cached = await getCachedPerfilUsuario();
+    const cached = await getCachedUserProfile();
     if (cached && cached.id === targetUserId) {
       setProfile(cached);
     }
     // 2. Traer versión fresca de Supabase (deduplicada en vuelo)
-    const freshProfile = await fetchPerfilUsuario(targetUserId);
+    const freshProfile = await fetchUserProfile(targetUserId);
     if (freshProfile) {
       setProfile(freshProfile);
     }
@@ -79,7 +75,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       } else {
         loadedUserIdRef.current = null;
         setProfile(null);
-        void clearCachedPerfilUsuario();
+        void clearCachedUserProfile();
       }
     });
 

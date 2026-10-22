@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/providers/auth-provider';
 import { signOut } from '@/services/auth';
-import { getInicialesUsuario, getNombreCompleto, getNombreRol } from '@/services/usuario';
+import { getFullName, getRoleName, getUserInitials } from '@/services/user';
 
 export default function PerfilScreen() {
   const insets = useSafeAreaInsets();
@@ -27,14 +27,10 @@ export default function PerfilScreen() {
     }
   };
 
-  const nombreCompleto = getNombreCompleto(
-    profile,
-    session?.user?.user_metadata,
-    session?.user?.email,
-  );
-  const iniciales = getInicialesUsuario(profile, session?.user?.email);
-  const rol = getNombreRol(profile?.rol_id);
-  const runFormateado = profile?.run && profile?.dv ? `RUN: ${profile.run}-${profile.dv}` : null;
+  const fullName = getFullName(profile, session?.user?.user_metadata, session?.user?.email);
+  const initials = getUserInitials(profile, session?.user?.email);
+  const role = getRoleName(profile?.rol_id);
+  const formattedRun = profile?.run && profile?.dv ? `RUN: ${profile.run}-${profile.dv}` : null;
 
   return (
     <View className="flex-1 bg-[#f8fafc]">
@@ -61,13 +57,13 @@ export default function PerfilScreen() {
           {/* Tarjeta de usuario con datos dinámicos */}
           <View className="mt-6 flex-row items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <View className="h-14 w-14 items-center justify-center rounded-full border border-blue-200 bg-blue-50">
-              <Text className="text-lg font-bold text-blue-700">{iniciales}</Text>
+              <Text className="text-lg font-bold text-blue-700">{initials}</Text>
             </View>
             <View className="flex-1">
-              <Text className="text-base font-bold text-slate-900">{nombreCompleto}</Text>
-              <Text className="text-xs font-medium text-slate-500">{rol}</Text>
-              {runFormateado ? (
-                <Text className="mt-0.5 text-xs text-slate-400">{runFormateado}</Text>
+              <Text className="text-base font-bold text-slate-900">{fullName}</Text>
+              <Text className="text-xs font-medium text-slate-500">{role}</Text>
+              {formattedRun ? (
+                <Text className="mt-0.5 text-xs text-slate-400">{formattedRun}</Text>
               ) : null}
               {session?.user?.email ? (
                 <Text className="mt-0.5 text-xs text-slate-400">{session.user.email}</Text>

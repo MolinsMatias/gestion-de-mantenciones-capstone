@@ -1,4 +1,3 @@
-import { Wifi, WifiOff } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -95,21 +94,17 @@ export function AppHeader({
                 ? 'Toca para ver detalles de sincronización o alternar el modo'
                 : undefined
             }
-            className={`flex-row items-center rounded-full border px-3 py-1.5 shadow-sm active:opacity-75 ${
-              isOnline
-                ? 'border-emerald-500/40 bg-emerald-500/10'
-                : 'border-amber-500/40 bg-amber-500/15'
-            }`}
+            className="flex-row items-center rounded-lg px-2 py-1.5 active:opacity-70"
             style={onPressConnectivity ? { cursor: 'pointer' } : undefined}
           >
-            {isOnline ? (
-              <Wifi size={14} color="#34d399" strokeWidth={2.4} />
-            ) : (
-              <WifiOff size={14} color="#fbbf24" strokeWidth={2.4} />
-            )}
+            <View
+              className={`mr-2 h-2 w-2 rounded-full ${
+                isOnline ? 'bg-emerald-400' : 'bg-amber-400'
+              }`}
+            />
             <Text
-              className={`ml-1.5 text-xs font-semibold ${
-                isOnline ? 'text-emerald-300' : 'text-amber-300'
+              className={`text-xs font-medium tracking-wide ${
+                isOnline ? 'text-slate-200' : 'text-amber-200'
               }`}
             >
               {isOnline ? 'En línea' : 'Modo local'}

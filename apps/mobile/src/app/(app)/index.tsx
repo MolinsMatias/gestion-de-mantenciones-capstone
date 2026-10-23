@@ -110,7 +110,7 @@ export default function HomeScreen() {
   const router = useRouter();
 
   const handleNewIntervention = () => {
-    router.push('/(app)/escanear');
+    router.push('/(app)/machines');
   };
 
   const [isOnline, setIsOnline] = useState<boolean>(() => {

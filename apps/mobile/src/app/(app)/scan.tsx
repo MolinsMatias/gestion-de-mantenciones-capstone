@@ -5,7 +5,6 @@ import {
   type CameraMountError,
   type CameraType,
 } from 'expo-camera';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import {
   AlertCircle,
@@ -16,7 +15,6 @@ import {
   FlashlightOff,
   QrCode,
   RefreshCw,
-  ScanLine,
   Settings,
   SwitchCamera,
 } from 'lucide-react-native';
@@ -45,9 +43,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppHeader } from '@/components/shared/app-header';
 
 const SCAN_FRAME_SIZE = 232;
-const LASER_MAX_TRANSLATE = SCAN_FRAME_SIZE - 16;
+const LASER_MAX_TRANSLATE = SCAN_FRAME_SIZE - 12;
 
-export default function EscanearScreen() {
+export default function ScanScreen() {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
@@ -146,11 +144,11 @@ export default function EscanearScreen() {
         typeof window !== 'undefined' &&
         (window.isSecureContext ||
           window.location.hostname === 'localhost' ||
-          window.location.hostname === '127.0.0.1');
+          window.location.hostname === '192.168.100.81');
 
       if (!isSecure) {
         setCameraError(
-          'El navegador bloquea el acceso a la cámara en conexiones no seguras (HTTP). Abre la PWA mediante HTTPS o desde localhost.',
+          'El navegador bloquea el acceso a la cámara en conexiones no seguras. Contacta a soporte técnico para buscar una solución.',
         );
         return;
       }
@@ -252,6 +250,7 @@ export default function EscanearScreen() {
       <AppHeader
         title="Escanear QR"
         subtitle="Apunta al código QR de la máquina para identificar el equipo"
+        showConnectivity={false}
       />
 
       <ScrollView
@@ -265,8 +264,8 @@ export default function EscanearScreen() {
       >
         <View className="w-full max-w-md self-center">
           {/* Visor principal de cámara y marco de escaneo */}
-          <View className="overflow-hidden rounded-3xl border border-slate-200/90 bg-[#07172C] shadow-md">
-            <View className="relative h-[370px] w-full items-center justify-center overflow-hidden">
+          <View className="overflow-hidden rounded-3xl bg-[#07172C] shadow-sm">
+            <View className="relative h-[370px] w-full items-center justify-center overflow-hidden bg-[#07172C]">
               {canRenderCamera ? (
                 <View style={StyleSheet.absoluteFill}>
                   <CameraView
@@ -280,23 +279,16 @@ export default function EscanearScreen() {
                     onBarcodeScanned={scannedData ? undefined : handleBarcodeScanned}
                   />
                 </View>
-              ) : (
-                <LinearGradient
-                  colors={['#07172C', '#0F2544', '#07172C']}
-                  style={StyleSheet.absoluteFill}
-                />
-              )}
+              ) : null}
 
-              {/* Capa oscura semitransparente para contrastar el marco */}
+              {/* Capa oscura sutil cuando la cámara está activa para dar contraste al recuadro */}
               <View
                 pointerEvents="none"
-                className={`absolute inset-0 ${
-                  canRenderCamera ? 'bg-slate-950/35' : 'bg-transparent'
-                }`}
+                className={`absolute inset-0 ${canRenderCamera ? 'bg-black/30' : 'bg-transparent'}`}
               />
 
-              {/* Píldora superior de estado de escaneo */}
-              <View className="absolute top-4 z-10 flex-row items-center rounded-full border border-white/15 bg-slate-900/80 px-3.5 py-1.5">
+              {/* Indicador superior minimalista de estado (punto + texto limpio sin bordes) */}
+              <View className="absolute top-4 z-10 flex-row items-center rounded-lg bg-black/35 px-3 py-1.5">
                 <View
                   className={`mr-2 h-2 w-2 rounded-full ${
                     scannedData
@@ -304,26 +296,24 @@ export default function EscanearScreen() {
                       : cameraError
                         ? 'bg-amber-400'
                         : isActivelyScanning
-                          ? isCameraReady
-                            ? 'bg-blue-400'
-                            : 'bg-sky-300'
+                          ? 'bg-emerald-400'
                           : 'bg-slate-400'
                   }`}
                 />
-                <Text className="text-xs font-semibold text-slate-100">
+                <Text className="text-xs font-medium text-slate-100">
                   {scannedData
                     ? 'Código QR detectado'
                     : cameraError
                       ? 'Cámara no disponible'
                       : isActivelyScanning
                         ? isCameraReady
-                          ? 'Escaneando en tiempo real...'
+                          ? 'Escaneando...'
                           : 'Iniciando cámara...'
                         : 'Cámara en espera'}
                 </Text>
               </View>
 
-              {/* Marco central de escaneo con esquinas resaltadas */}
+              {/* Marco central de escaneo con guías sobrias estilo cámara nativa */}
               <View
                 style={{ width: SCAN_FRAME_SIZE, height: SCAN_FRAME_SIZE }}
                 className="relative items-center justify-center"
@@ -331,49 +321,49 @@ export default function EscanearScreen() {
                 {/* Esquina superior izquierda */}
                 <View
                   pointerEvents="none"
-                  className={`absolute left-0 top-0 h-9 w-9 rounded-tl-2xl border-l-4 border-t-4 ${
+                  className={`absolute left-0 top-0 h-8 w-8 rounded-tl-xl border-l-[3px] border-t-[3px] ${
                     scannedData
                       ? 'border-emerald-400'
                       : isActivelyScanning
-                        ? 'border-blue-400'
-                        : 'border-slate-500/70'
+                        ? 'border-white'
+                        : 'border-white/30'
                   }`}
                 />
                 {/* Esquina superior derecha */}
                 <View
                   pointerEvents="none"
-                  className={`absolute right-0 top-0 h-9 w-9 rounded-tr-2xl border-r-4 border-t-4 ${
+                  className={`absolute right-0 top-0 h-8 w-8 rounded-tr-xl border-r-[3px] border-t-[3px] ${
                     scannedData
                       ? 'border-emerald-400'
                       : isActivelyScanning
-                        ? 'border-blue-400'
-                        : 'border-slate-500/70'
+                        ? 'border-white'
+                        : 'border-white/30'
                   }`}
                 />
                 {/* Esquina inferior izquierda */}
                 <View
                   pointerEvents="none"
-                  className={`absolute bottom-0 left-0 h-9 w-9 rounded-bl-2xl border-b-4 border-l-4 ${
+                  className={`absolute bottom-0 left-0 h-8 w-8 rounded-bl-xl border-b-[3px] border-l-[3px] ${
                     scannedData
                       ? 'border-emerald-400'
                       : isActivelyScanning
-                        ? 'border-blue-400'
-                        : 'border-slate-500/70'
+                        ? 'border-white'
+                        : 'border-white/30'
                   }`}
                 />
                 {/* Esquina inferior derecha */}
                 <View
                   pointerEvents="none"
-                  className={`absolute bottom-0 right-0 h-9 w-9 rounded-br-2xl border-b-4 border-r-4 ${
+                  className={`absolute bottom-0 right-0 h-8 w-8 rounded-br-xl border-b-[3px] border-r-[3px] ${
                     scannedData
                       ? 'border-emerald-400'
                       : isActivelyScanning
-                        ? 'border-blue-400'
-                        : 'border-slate-500/70'
+                        ? 'border-white'
+                        : 'border-white/30'
                   }`}
                 />
 
-                {/* Línea láser animada cuando está escaneando */}
+                {/* Línea de escaneo limpia sin destello holográfico */}
                 {isActivelyScanning ? (
                   <Animated.View
                     pointerEvents="none"
@@ -381,43 +371,24 @@ export default function EscanearScreen() {
                       {
                         position: 'absolute',
                         top: 0,
-                        left: 10,
-                        right: 10,
+                        left: 12,
+                        right: 12,
                       },
                       laserAnimatedStyle,
                     ]}
                   >
-                    <LinearGradient
-                      colors={[
-                        'rgba(59, 130, 246, 0)',
-                        'rgba(96, 165, 250, 0.95)',
-                        'rgba(59, 130, 246, 0)',
-                      ]}
-                      start={{ x: 0, y: 0.5 }}
-                      end={{ x: 1, y: 0.5 }}
-                      style={{ height: 3, borderRadius: 999 }}
-                    />
-                    <LinearGradient
-                      colors={['rgba(59, 130, 246, 0.35)', 'rgba(59, 130, 246, 0)']}
-                      style={{ height: 18 }}
-                    />
+                    <View className="h-[2px] w-full rounded-full bg-white/90" />
                   </Animated.View>
                 ) : null}
 
                 {/* Estado central cuando la cámara está apagada o con error */}
                 {!canRenderCamera ? (
-                  <View className="items-center px-4">
-                    <View
-                      className={`mb-3 h-16 w-16 items-center justify-center rounded-2xl border ${
-                        cameraError
-                          ? 'border-amber-400/30 bg-amber-500/15'
-                          : 'border-blue-400/25 bg-blue-500/15'
-                      }`}
-                    >
+                  <View className="items-center px-5">
+                    <View className="mb-3 h-14 w-14 items-center justify-center rounded-2xl bg-white/10">
                       {cameraError ? (
-                        <AlertCircle size={32} color="#fbbf24" strokeWidth={1.8} />
+                        <AlertCircle size={28} color="#fbbf24" strokeWidth={1.8} />
                       ) : (
-                        <QrCode size={34} color="#60a5fa" strokeWidth={1.8} />
+                        <QrCode size={28} color="#e2e8f0" strokeWidth={1.8} />
                       )}
                     </View>
                     <Text className="text-center text-sm font-semibold text-white">
@@ -438,17 +409,14 @@ export default function EscanearScreen() {
                 ) : null}
               </View>
 
-              {/* Texto guía inferior dentro del visor */}
-              <View className="absolute bottom-4 flex-row items-center gap-1.5 rounded-full bg-slate-900/75 px-3.5 py-1.5">
-                <ScanLine size={14} color="#93c5fd" strokeWidth={2} />
-                <Text className="text-xs font-medium text-slate-200">
-                  Mantén el código a 15-20 cm de distancia
-                </Text>
-              </View>
+              {/* Texto guía inferior limpio sin contenedor flotante */}
+              <Text className="absolute bottom-4 text-xs font-medium text-slate-300">
+                Mantén el código a 15-20 cm de distancia
+              </Text>
             </View>
 
-            {/* Barra de controles del escáner (Activar/Pausar, Cambiar cámara y Linterna) */}
-            <View className="flex-row items-center gap-2.5 border-t border-slate-800 bg-[#0A1E38] p-3.5">
+            {/* Barra de controles del escáner sin bordes coloreados */}
+            <View className="flex-row items-center gap-2.5 bg-[#0A1E38] p-3.5">
               {isPermissionBlocked ? (
                 <Pressable
                   onPress={() => void Linking.openSettings()}
@@ -470,7 +438,7 @@ export default function EscanearScreen() {
                   accessibilityState={{ selected: canRenderCamera }}
                   className={`min-h-[48px] flex-1 flex-row items-center justify-center gap-2 rounded-xl px-4 py-3 ${
                     canRenderCamera
-                      ? 'border border-slate-600 bg-slate-800 active:bg-slate-700'
+                      ? 'bg-white/10 active:bg-white/15'
                       : 'bg-blue-600 active:bg-blue-700'
                   }`}
                   style={{ cursor: 'pointer' }}
@@ -496,14 +464,12 @@ export default function EscanearScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Cambiar entre cámara trasera y frontal"
                 accessibilityState={{ disabled: !canRenderCamera }}
-                className={`min-h-[48px] min-w-[48px] items-center justify-center rounded-xl border px-3 py-3 ${
-                  !canRenderCamera
-                    ? 'border-slate-800 bg-slate-900/50 opacity-45'
-                    : 'border-slate-700 bg-slate-800/90 active:bg-slate-700'
+                className={`min-h-[48px] min-w-[48px] items-center justify-center rounded-xl px-3 py-3 ${
+                  !canRenderCamera ? 'bg-white/5 opacity-40' : 'bg-white/10 active:bg-white/15'
                 }`}
                 style={{ cursor: !canRenderCamera ? 'auto' : 'pointer' }}
               >
-                <SwitchCamera size={18} color="#cbd5e1" strokeWidth={2} />
+                <SwitchCamera size={18} color="#e2e8f0" strokeWidth={2} />
               </Pressable>
 
               {/* Botón de Linterna (Flash) */}
@@ -516,25 +482,25 @@ export default function EscanearScreen() {
                   selected: isTorchOn,
                   disabled: !canRenderCamera || facing === 'front',
                 }}
-                className={`min-h-[48px] min-w-[52px] flex-row items-center justify-center gap-1.5 rounded-xl border px-3.5 py-3 ${
+                className={`min-h-[48px] min-w-[52px] flex-row items-center justify-center gap-1.5 rounded-xl px-3.5 py-3 ${
                   !canRenderCamera || facing === 'front'
-                    ? 'border-slate-800 bg-slate-900/50 opacity-45'
+                    ? 'bg-white/5 opacity-40'
                     : isTorchOn
-                      ? 'border-amber-400/60 bg-amber-500/20 active:bg-amber-500/30'
-                      : 'border-slate-700 bg-slate-800/90 active:bg-slate-700'
+                      ? 'bg-amber-400 active:bg-amber-500'
+                      : 'bg-white/10 active:bg-white/15'
                 }`}
                 style={{
                   cursor: !canRenderCamera || facing === 'front' ? 'auto' : 'pointer',
                 }}
               >
                 {isTorchOn ? (
-                  <Flashlight size={18} color="#fbbf24" strokeWidth={2} />
+                  <Flashlight size={18} color="#0f172a" strokeWidth={2} />
                 ) : (
-                  <FlashlightOff size={18} color="#cbd5e1" strokeWidth={2} />
+                  <FlashlightOff size={18} color="#e2e8f0" strokeWidth={2} />
                 )}
                 <Text
                   className={`text-xs font-semibold ${
-                    isTorchOn ? 'text-amber-300' : 'text-slate-200'
+                    isTorchOn ? 'text-slate-900' : 'text-slate-200'
                   }`}
                 >
                   Flash
@@ -547,15 +513,15 @@ export default function EscanearScreen() {
           {scannedData ? (
             <View
               accessibilityLiveRegion="polite"
-              className="mt-4 rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm"
+              className="mt-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm"
             >
               <View className="flex-row items-start gap-3">
                 <View
                   accessible={false}
                   importantForAccessibility="no-hide-descendants"
-                  className="mt-0.5 h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50"
+                  className="mt-0.5 h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100"
                 >
-                  <CheckCircle2 size={20} color="#059669" strokeWidth={2} />
+                  <CheckCircle2 size={20} color="#0f172a" strokeWidth={2} />
                 </View>
 
                 <View className="min-w-0 flex-1">
@@ -573,7 +539,7 @@ export default function EscanearScreen() {
                 onPress={handleResetScan}
                 accessibilityRole="button"
                 accessibilityLabel="Escanear otro código QR"
-                className="mt-3.5 min-h-[44px] flex-row items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-2.5 active:bg-slate-100"
+                className="mt-3.5 min-h-[44px] flex-row items-center justify-center gap-2 rounded-xl bg-slate-100 py-2.5 active:bg-slate-200"
                 style={{ cursor: 'pointer' }}
               >
                 <RefreshCw size={15} color="#334155" strokeWidth={2} />

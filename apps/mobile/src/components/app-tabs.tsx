@@ -16,7 +16,7 @@ interface TabItem {
 // Se indexa por nombre de ruta de `(app)`; el orden visual lo define el layout.
 const TAB_ITEMS: Record<string, TabItem> = {
   index: { label: 'Inicio', icon: House },
-  machines: { label: 'Maquinas', icon: Blocks },
+  machines: { label: 'Máquinas', icon: Blocks },
   scan: { label: 'Escanear', icon: QrCode, primary: true },
   history: { label: 'Historial', icon: ClipboardList },
   profile: { label: 'Perfil', icon: User },

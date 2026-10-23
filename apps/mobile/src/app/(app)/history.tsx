@@ -35,7 +35,7 @@ const MAINTENANCE_ITEMS: MaintenanceItem[] = [
     category: 'Sistemas de puntuación',
     machineType: 'scoring',
     location: 'Mampato - Las Condes',
-    timeLabel: 'Hoy, 16:30',
+    timeLabel: 'Hoy, 10:30',
     iconType: 'zap',
   },
   {
@@ -44,7 +44,7 @@ const MAINTENANCE_ITEMS: MaintenanceItem[] = [
     category: 'Mecánica / Limpieza',
     machineType: 'ball_return',
     location: 'Happyland - Viña del Mar',
-    timeLabel: 'Mañana, 09:00',
+    timeLabel: 'Ayer, 13:00',
     iconType: 'settings',
   },
   {
@@ -62,7 +62,7 @@ const MAINTENANCE_ITEMS: MaintenanceItem[] = [
     category: 'Pinsetter GS-X',
     machineType: 'pinsetter',
     location: 'Mampato - Las Condes',
-    timeLabel: 'Mañana, 13:00',
+    timeLabel: 'Ayer, 09:00',
     iconType: 'wrench',
   },
 ];

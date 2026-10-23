@@ -1,12 +1,5 @@
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
-import {
-  ClipboardCheck,
-  House,
-  ScanQrCode,
-  User,
-  Users,
-  type LucideIcon,
-} from 'lucide-react-native';
+import { Blocks, House, QrCode, User, ClipboardList, type LucideIcon } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,10 +16,10 @@ interface TabItem {
 // Se indexa por nombre de ruta de `(app)`; el orden visual lo define el layout.
 const TAB_ITEMS: Record<string, TabItem> = {
   index: { label: 'Inicio', icon: House },
-  tareas: { label: 'Tareas', icon: ClipboardCheck },
-  escanear: { label: 'Escanear', icon: ScanQrCode, primary: true },
-  equipo: { label: 'Equipo', icon: Users },
-  perfil: { label: 'Perfil', icon: User },
+  machines: { label: 'Maquinas', icon: Blocks },
+  scan: { label: 'Escanear', icon: QrCode, primary: true },
+  history: { label: 'Historial', icon: ClipboardList },
+  profile: { label: 'Perfil', icon: User },
 };
 
 const ICON_SIZE = 24;
@@ -143,7 +136,7 @@ export function AppTabs({ state, navigation }: BottomTabBarProps) {
             ]}
           >
             <View pointerEvents="none" className="items-center justify-center">
-              <ScanQrCode size={28} color="#ffffff" strokeWidth={2} />
+              <QrCode size={28} color="#ffffff" strokeWidth={2} />
             </View>
           </Pressable>
         </View>

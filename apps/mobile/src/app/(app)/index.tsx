@@ -1,7 +1,6 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import {
   Check,
   ClipboardList,
@@ -17,9 +16,8 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useAuth } from '@/providers/auth-provider';
 import { LocalBottomSheet } from '@/components/local/local-bottom-sheet';
-import { getGreetingName } from '@/services/user';
+import { AppHeader } from '@/components/shared/app-header';
 import type { Local } from '@/types/local';
 
 const bowlingBg = require('@/assets/images/bowling-bg.jpg');
@@ -110,9 +108,6 @@ const BITACORA_ITEMS: BitacoraItem[] = [
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { session, profile } = useAuth();
-
-  const greetingName = getGreetingName(profile, session?.user?.user_metadata, session?.user?.email);
 
   const handleNewIntervention = () => {
     router.push('/(app)/escanear');
@@ -156,8 +151,6 @@ export default function HomeScreen() {
 
   return (
     <View className="flex-1 bg-[#f8fafc]">
-      <StatusBar style="light" />
-
       <ScrollView
         className="flex-1"
         showsVerticalScrollIndicator={false}
@@ -166,49 +159,7 @@ export default function HomeScreen() {
         }}
       >
         {/* Cabecera oscura institucional */}
-        <View
-          className="rounded-b-[28px] bg-[#07172C] pb-7 shadow-md"
-          style={{ paddingTop: Math.max(insets.top + 10, 24) }}
-        >
-          <View className="w-full max-w-xl flex-row items-center justify-between self-center px-5">
-            <View>
-              <Text className="text-xl font-bold tracking-tight text-white">
-                ¡Hola, {greetingName}!
-              </Text>
-              <Text className="mt-0.5 text-xs text-slate-300">Mantén la operación en marcha</Text>
-            </View>
-
-            <Pressable
-              onPress={handleConnectivityPress}
-              accessibilityRole="button"
-              accessibilityLabel={
-                isOnline
-                  ? 'Conexión a internet activa: sincronizando con la base de datos'
-                  : 'Sin conexión: guardando datos en almacenamiento local'
-              }
-              accessibilityHint="Toca para ver detalles de sincronización o alternar el modo"
-              className={`flex-row items-center rounded-full border px-3 py-1.5 shadow-sm active:opacity-75 ${
-                isOnline
-                  ? 'border-emerald-500/40 bg-emerald-500/10'
-                  : 'border-amber-500/40 bg-amber-500/15'
-              }`}
-              style={{ cursor: 'pointer' }}
-            >
-              {isOnline ? (
-                <Wifi size={14} color="#34d399" strokeWidth={2.4} />
-              ) : (
-                <WifiOff size={14} color="#fbbf24" strokeWidth={2.4} />
-              )}
-              <Text
-                className={`ml-1.5 text-xs font-semibold ${
-                  isOnline ? 'text-emerald-300' : 'text-amber-300'
-                }`}
-              >
-                {isOnline ? 'En línea' : 'Modo local'}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
+        <AppHeader isOnline={isOnline} onPressConnectivity={handleConnectivityPress} />
 
         {/* Contenido principal con desplazamiento centrado */}
         <View className="-mt-3.5 w-full max-w-xl flex-col gap-4 self-center px-4">

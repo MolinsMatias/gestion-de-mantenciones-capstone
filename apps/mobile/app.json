@@ -37,6 +37,12 @@
     "plugins": [
       "expo-router",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Permitir a $(PRODUCT_NAME) acceder a la cámara para escanear códigos QR de máquinas y equipos."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#208AEF",

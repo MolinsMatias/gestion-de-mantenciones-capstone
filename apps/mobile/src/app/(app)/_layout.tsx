@@ -29,11 +29,11 @@ export default function AppLayout() {
       }}
     >
       {/* El orden define la posición en la barra; `escanear` ocupa el botón central. */}
-      <Tabs.Screen name="index" options={{ title: 'Inicio' }} />
-      <Tabs.Screen name="tareas" options={{ title: 'Tareas' }} />
-      <Tabs.Screen name="escanear" options={{ title: 'Escanear' }} />
-      <Tabs.Screen name="equipo" options={{ title: 'Equipo' }} />
-      <Tabs.Screen name="perfil" options={{ title: 'Perfil' }} />
+      <Tabs.Screen name="index" />
+      <Tabs.Screen name="machines" />
+      <Tabs.Screen name="scan" />
+      <Tabs.Screen name="history" />
+      <Tabs.Screen name="profile" />
     </Tabs>
   );
 }

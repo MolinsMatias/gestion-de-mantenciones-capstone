@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getSupabase } from '@/services/supabase';
-import type { UserProfile } from '@/types/user';
+import type { UserProfile, UserRole } from '@/types/user';
 
 const USER_PROFILE_CACHE_KEY = '@bowling_services/user_profile';
 
@@ -27,7 +27,7 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
       const { data, error } = await supabase
         .from('usuario')
         .select(
-          'id, run, dv, nombre, segundo_nombre, apellido_paterno, apellido_materno, rol_id, activo, created_at',
+          'id, run, dv, nombre, segundo_nombre, apellido_paterno, apellido_materno, rol_id, activo, created_at, rol:rol_id(id, nombre, created_at)',
         )
         .eq('id', userId)
         .maybeSingle();
@@ -37,6 +37,22 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
       }
 
       if (!error && data) {
+        const rawRole = Array.isArray(data.rol) ? data.rol[0] : data.rol;
+        const parsedRole: UserRole | null =
+          rawRole &&
+          typeof rawRole === 'object' &&
+          'nombre' in rawRole &&
+          typeof rawRole.nombre === 'string'
+            ? {
+                id: String(rawRole.id ?? data.rol_id),
+                nombre: rawRole.nombre,
+                created_at:
+                  'created_at' in rawRole && typeof rawRole.created_at === 'string'
+                    ? rawRole.created_at
+                    : undefined,
+              }
+            : null;
+
         const profile: UserProfile = {
           id: data.id,
           run: data.run,
@@ -45,7 +61,8 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
           segundo_nombre: data.segundo_nombre ?? null,
           apellido_paterno: data.apellido_paterno ?? '',
           apellido_materno: data.apellido_materno ?? null,
-          rol_id: data.rol_id,
+          rol_id: String(data.rol_id),
+          rol: parsedRole,
           activo: Boolean(data.activo),
           created_at: data.created_at,
         };
@@ -122,6 +139,23 @@ export function getGreetingName(
 }
 
 /**
+ * Returns short display name (first name + paternal surname, e.g. "Matías Rojas").
+ */
+export function getDisplayName(
+  profile: UserProfile | null,
+  userMetadata?: Record<string, unknown> | null,
+  email?: string | null,
+): string {
+  if (profile) {
+    const parts = [profile.nombre?.trim(), profile.apellido_paterno?.trim()].filter(Boolean);
+    if (parts.length > 0) {
+      return parts.join(' ');
+    }
+  }
+  return getFullName(profile, userMetadata, email);
+}
+
+/**
  * Returns full concatenated user name.
  */
 export function getFullName(
@@ -173,10 +207,12 @@ export function getUserInitials(profile: UserProfile | null, email?: string | nu
 }
 
 /**
- * Maps numeric or string role identifier to human-readable label.
+ * Returns the human-readable role name from the user's profile (`rol.nombre`).
  */
-export function getRoleName(roleId: number | string | undefined | null): string {
-  if (roleId === 1 || roleId === '1' || roleId === 'admin') return 'Administrador';
-  if (roleId === 2 || roleId === '2' || roleId === 'tecnico') return 'Técnico de Mantención';
-  return 'Técnico de Mantención';
+export function getRoleName(profile: UserProfile | null | undefined): string {
+  const roleName = profile?.rol?.nombre?.trim();
+  if (roleName) {
+    return roleName;
+  }
+  return 'Sin rol asignado';
 }

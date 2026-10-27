@@ -3,11 +3,13 @@ import '@/global.css';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import React from 'react';
-import { StatusBar, useColorScheme } from 'react-native';
+import { LogBox, StatusBar, useColorScheme } from 'react-native';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
 import { useSupabaseSessionRefresh } from '@/hooks/use-supabase-session-refresh';
 import { AuthProvider } from '@/providers/auth-provider';
+
+LogBox.ignoreLogs(['[Reanimated] Reduced motion setting is enabled on this device']);
 
 void SplashScreen.preventAutoHideAsync();
 

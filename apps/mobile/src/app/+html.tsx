@@ -13,8 +13,11 @@ export default function Root({ children }: PropsWithChildren) {
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-        {/* El fondo cubre las áreas seguras; el contenido gestiona sus propios insets. */}
-        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        {/* El fondo cubre las áreas seguras; el contenido gestiona sus propios insets. Bloquea el zoom involuntario en móviles/PWA al enfocar inputs. */}
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+        />
 
         {/* Enlace al Web App Manifest para instalación PWA */}
         <link rel="manifest" href="/manifest.json" />
@@ -85,6 +88,13 @@ body {
 input, textarea {
   user-select: auto;
   -webkit-user-select: auto;
+}
+
+/* Prevenir el auto-zoom de iOS Safari / WebKit al hacer foco en inputs (sucede cuando font-size < 16px) */
+input,
+textarea,
+select {
+  font-size: 16px !important;
 }
 
 /* En web/PWA, los TextInput de React Native renderizan como <input> o <textarea>.

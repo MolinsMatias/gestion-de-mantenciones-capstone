@@ -168,7 +168,7 @@ export default function MachinesScreen() {
                 accessibilityLabel="Buscar equipo por nombre o código"
                 returnKeyType="search"
                 autoCorrect={false}
-                className="ml-2.5 flex-1 py-2.5 text-sm text-slate-900"
+                className="ml-2.5 flex-1 py-2 text-base text-slate-900"
               />
               {searchQuery.length > 0 ? (
                 <Pressable

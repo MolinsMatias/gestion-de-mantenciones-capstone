@@ -80,14 +80,15 @@ export function LocalBottomSheet({
 
           {/* Quick search input */}
           <View className="px-5 pt-2 pb-3">
-            <View className="flex-row items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+            <View className="min-h-[44px] flex-row items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5">
               <Search size={16} color="#94a3b8" strokeWidth={2.2} />
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder="Buscar sala por nombre o comuna..."
                 placeholderTextColor="#94a3b8"
-                className="ml-2 flex-1 text-xs text-slate-800"
+                accessibilityLabel="Buscar sala por nombre o comuna"
+                className="ml-2 flex-1 py-1 text-base text-slate-800"
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -97,6 +98,7 @@ export function LocalBottomSheet({
                   accessibilityRole="button"
                   accessibilityLabel="Limpiar búsqueda"
                   className="p-1 active:opacity-70"
+                  style={{ cursor: 'pointer' }}
                 >
                   <X size={14} color="#94a3b8" />
                 </Pressable>

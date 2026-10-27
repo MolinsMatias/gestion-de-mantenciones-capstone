@@ -13,10 +13,10 @@ export default function Root({ children }: PropsWithChildren) {
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-        {/* El fondo cubre las áreas seguras; el contenido gestiona sus propios insets. Bloquea el zoom involuntario en móviles/PWA al enfocar inputs. */}
+        {/* El fondo cubre las áreas seguras; el contenido gestiona sus propios insets. Bloquea el zoom y redimensiona el layout con el teclado virtual en móviles/PWA. */}
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"
         />
 
         {/* Enlace al Web App Manifest para instalación PWA */}
@@ -67,6 +67,12 @@ html, body {
   overflow: hidden;
   overscroll-behavior-y: none;
   overscroll-behavior-x: none;
+}
+
+/* Fijar el body evita que el navegador desplace toda la página al abrir el teclado. */
+body {
+  position: fixed;
+  inset: 0;
 }
 
 #root {

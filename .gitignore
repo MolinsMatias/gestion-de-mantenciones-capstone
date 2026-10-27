@@ -46,3 +46,4 @@ example
 /android
 *AGENTS.md
 *.agents
+docs/technical/*

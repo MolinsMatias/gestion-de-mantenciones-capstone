@@ -106,6 +106,7 @@ export default function LoginScreen() {
         bounces={false}
         overScrollMode="never"
         showsVerticalScrollIndicator={false}
+        bottomOffset={48}
       >
         {/* El encabezado adapta su título según el modo de autenticación */}
         <AuthHeader

@@ -155,6 +155,7 @@ export default function ResetPasswordScreen() {
         bounces={false}
         overScrollMode="never"
         showsVerticalScrollIndicator={false}
+        bottomOffset={48}
       >
         <AuthHeader
           title="Restablecer contraseña"

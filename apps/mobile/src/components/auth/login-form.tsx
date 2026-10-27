@@ -157,6 +157,7 @@ export function LoginForm({
             accessibilityLabel={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
             hitSlop={8}
             className="p-1"
+            style={{ cursor: 'pointer' }}
           >
             {showPassword ? (
               <EyeOff size={18} color="#475569" strokeWidth={1.8} />
@@ -173,6 +174,7 @@ export function LoginForm({
           accessibilityLabel="¿Olvidaste tu contraseña?"
           hitSlop={8}
           className="mt-2.5 self-end px-1 py-1.5"
+          style={{ cursor: 'pointer' }}
         >
           <Text className="text-sm font-medium text-brand-blue">¿Olvidaste tu contraseña?</Text>
         </Pressable>
@@ -197,6 +199,7 @@ export function LoginForm({
             shadowOpacity: 0.25,
             shadowRadius: 10,
             elevation: 3,
+            cursor: isLoading ? undefined : 'pointer',
           }}
         >
           {isLoading ? (

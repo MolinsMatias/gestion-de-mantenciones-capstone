@@ -81,7 +81,7 @@ body {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background-color: #f8fafc;
+  background-color: #07172C;
 }
 
 /* Evitar selección accidental de textos como en app nativa */

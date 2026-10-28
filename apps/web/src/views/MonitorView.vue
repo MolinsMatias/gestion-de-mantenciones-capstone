@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   BuildingStorefrontIcon, CheckCircleIcon, ClipboardDocumentCheckIcon,
@@ -9,6 +9,8 @@ import KpiCard from '../components/monitor/KpiCard.vue'
 import LocalCard from '../components/monitor/LocalCard.vue'
 import MonitorHeader from '../components/monitor/MonitorHeader.vue'
 import MonitorNotes from '../components/monitor/MonitorNotes.vue'
+import CrearLocalModal from '../components/local/CrearLocalModal.vue'
+import type { LocalCreado } from '../types/local'
 import { useMonitorStore } from '../stores/monitor'
 
 const monitor = useMonitorStore()
@@ -16,6 +18,20 @@ const {
   cargando, error, ultimaActualizacion, maquinasOperativas,
   inspeccionesHoy, fechaChile, localesActivos, resumenLocales,
 } = storeToRefs(monitor)
+
+const mostrarCrearLocal = ref(false)
+const mensajeExito = ref('')
+
+function abrirCrearLocal(): void {
+  mensajeExito.value = ''
+  mostrarCrearLocal.value = true
+}
+
+async function alCrearLocal(local: LocalCreado): Promise<void> {
+  mostrarCrearLocal.value = false
+  mensajeExito.value = `Local «${local.nombre}» creado correctamente.`
+  await monitor.cargar()
+}
 
 const horaActualizacion = computed(() => ultimaActualizacion.value?.toLocaleTimeString('es-CL', {
   hour: '2-digit', minute: '2-digit', timeZone: 'America/Santiago',
@@ -29,7 +45,19 @@ onUnmounted(() => monitor.limpiar())
 </script>
 
 <template>
-  <MonitorHeader :cargando="cargando" @actualizar="monitor.cargar()" />
+  <MonitorHeader
+    :cargando="cargando"
+    @actualizar="monitor.cargar()"
+    @crear-local="abrirCrearLocal"
+  />
+
+  <p
+    v-if="mensajeExito"
+    role="status"
+    class="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800"
+  >
+    {{ mensajeExito }}
+  </p>
   <div v-if="error" role="alert"
     class="mb-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
     <ExclamationTriangleIcon class="size-5 shrink-0" aria-hidden="true" />{{ error }}
@@ -59,4 +87,10 @@ onUnmounted(() => monitor.limpiar())
     </section>
     <MonitorNotes />
   </template>
+
+  <CrearLocalModal
+    v-if="mostrarCrearLocal"
+    @cerrar="mostrarCrearLocal = false"
+    @creado="alCrearLocal"
+  />
 </template>

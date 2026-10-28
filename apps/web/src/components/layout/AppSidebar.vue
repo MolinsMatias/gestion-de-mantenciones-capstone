@@ -11,9 +11,7 @@ defineEmits<{ salir: [] }>()
 <template>
   <aside class="flex flex-col bg-navy-900 px-5 py-6 text-white lg:fixed lg:inset-y-0 lg:w-64">
     <div class="flex items-center gap-3 px-2">
-      <div class="rounded-xl bg-blue-500/20 p-2.5">
-        <BuildingStorefrontIcon class="size-6 text-blue-400" aria-hidden="true" />
-      </div>
+        <img src="@/assets/images/logo.png" alt="Bowling Services" class="size-20" />
       <div>
         <p class="font-bold">Bowling Services</p>
         <p class="text-xs text-slate-400">Panel administrador</p>

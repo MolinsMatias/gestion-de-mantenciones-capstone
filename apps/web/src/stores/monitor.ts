@@ -5,6 +5,8 @@ import type {
   IndicadoresMonitor, LocalMonitor, MaquinaMonitor, ResumenLocal,
 } from '../types/monitor'
 
+
+
 export const useMonitorStore = defineStore('monitor', () => {
   const locales = ref<LocalMonitor[]>([])
   const maquinas = ref<MaquinaMonitor[]>([])
@@ -82,4 +84,6 @@ export const useMonitorStore = defineStore('monitor', () => {
     cargando, error, ultimaActualizacion, maquinasOperativas,
     inspeccionesHoy, fechaChile, localesActivos, resumenLocales, cargar, limpiar
   }
+
+
 })

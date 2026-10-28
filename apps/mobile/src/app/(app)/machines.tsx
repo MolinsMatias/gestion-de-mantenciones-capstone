@@ -1,142 +1,85 @@
-import { Image, type ImageSource } from 'expo-image';
-import { useRouter } from 'expo-router';
-import { ChevronRight, QrCode, Search, SlidersHorizontal, X } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { AlertCircle, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react-native';
+import React, { useCallback, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+  type ListRenderItemInfo,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { getMachineStatusConfig, MachineCard } from '@/components/machines/machine-card';
+import { MachineCardSkeletonList } from '@/components/machines/machine-card-skeleton';
 import { AppHeader } from '@/components/shared/app-header';
+import { useMachines } from '@/hooks/use-machines';
+import { useWebPullToRefresh } from '@/hooks/use-web-pull-to-refresh';
+import type { Machine, MachineStatusFilter } from '@/types/machine';
 
-const bowlingImg = require('@/assets/images/maquinas/bowling.jpg');
-const bowlingBgImg = require('@/assets/images/maquinas/bowling2.webp');
-const arcadeDaytonaImg = require('@/assets/images/maquinas/arcade_daytona.jpg');
-const flipperAddamsImg = require('@/assets/images/maquinas/fippler_addams.webp');
-const redemptionIceImg = require('@/assets/images/maquinas/redemption_ice.jpg');
-const arcadeCabinetImg = require('@/assets/images/maquinas/arcade.webp');
-
-type MachineCategory = 'Todos' | 'Bowling' | 'Arcade' | 'Redemption' | 'Flipper';
-type MachineStatus = 'operational' | 'operational_with_details' | 'out_of_service';
-
-interface MachineItem {
-  id: string;
-  name: string;
-  category: Exclude<MachineCategory, 'Todos'>;
-  code: string;
-  status: MachineStatus;
-  imageSource: ImageSource | number;
-}
-
-const CATEGORIES: MachineCategory[] = ['Todos', 'Bowling', 'Arcade', 'Redemption', 'Flipper'];
-
-const STATUS_FILTER_OPTIONS: { value: 'all' | MachineStatus; label: string }[] = [
+const STATUS_FILTER_OPTIONS: { value: MachineStatusFilter; label: string }[] = [
   { value: 'all', label: 'Todos los estados' },
-  { value: 'operational', label: 'Operativa' },
-  { value: 'operational_with_details', label: 'Operativa con detalles' },
-  { value: 'out_of_service', label: 'Fuera de servicio' },
+  { value: 'operativa', label: 'Operativa' },
+  { value: 'operativa_con_observaciones', label: 'Operativa con detalles' },
+  { value: 'fuera_de_servicio', label: 'Fuera de servicio' },
 ];
-
-const MACHINES_DATA: MachineItem[] = [
-  {
-    id: 'bwl-001',
-    name: 'Pista 1',
-    category: 'Bowling',
-    code: 'BWL-001',
-    status: 'operational',
-    imageSource: bowlingImg,
-  },
-  {
-    id: 'bwl-005',
-    name: 'Pista 5',
-    category: 'Bowling',
-    code: 'BWL-005',
-    status: 'operational_with_details',
-    imageSource: bowlingBgImg,
-  },
-  {
-    id: 'arc-012',
-    name: 'Daytona USA',
-    category: 'Arcade',
-    code: 'ARC-012',
-    status: 'out_of_service',
-    imageSource: arcadeDaytonaImg,
-  },
-  {
-    id: 'flp-003',
-    name: 'The Addams Family',
-    category: 'Flipper',
-    code: 'FLP-003',
-    status: 'operational',
-    imageSource: flipperAddamsImg,
-  },
-  {
-    id: 'rdm-004',
-    name: 'Ice Ball FX',
-    category: 'Redemption',
-    code: 'RDM-004',
-    status: 'operational',
-    imageSource: redemptionIceImg,
-  },
-  {
-    id: 'arc-018',
-    name: 'Pac-Man Arcade',
-    category: 'Arcade',
-    code: 'ARC-018',
-    status: 'operational',
-    imageSource: arcadeCabinetImg,
-  },
-];
-
-function getStatusConfig(status: MachineStatus): {
-  label: string;
-  dotClassName: string;
-  textClassName: string;
-} {
-  switch (status) {
-    case 'operational':
-      return {
-        label: 'Operativa',
-        dotClassName: 'bg-emerald-600',
-        textClassName: 'text-emerald-700',
-      };
-    case 'operational_with_details':
-      return {
-        label: 'Operativa con detalles',
-        dotClassName: 'bg-amber-500',
-        textClassName: 'text-amber-600',
-      };
-    case 'out_of_service':
-      return {
-        label: 'Fuera de servicio',
-        dotClassName: 'bg-red-500',
-        textClassName: 'text-red-600',
-      };
-  }
-}
 
 export default function MachinesScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<MachineCategory>('Todos');
-  const [statusFilter, setStatusFilter] = useState<'all' | MachineStatus>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
+  const [statusFilter, setStatusFilter] = useState<MachineStatusFilter>('all');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const filteredMachines = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase();
+  const {
+    machines,
+    categories,
+    totalCount,
+    isLoading,
+    isLoadingMore,
+    isRefreshing,
+    error,
+    loadMore,
+    refresh,
+  } = useMachines({
+    selectedCategory,
+    searchQuery,
+    statusFilter,
+  });
 
-    return MACHINES_DATA.filter((machine) => {
-      const matchesCategory = selectedCategory === 'Todos' || machine.category === selectedCategory;
-      const matchesStatus = statusFilter === 'all' || machine.status === statusFilter;
-      const matchesSearch =
-        normalizedQuery.length === 0 ||
-        machine.name.toLowerCase().includes(normalizedQuery) ||
-        machine.code.toLowerCase().includes(normalizedQuery) ||
-        machine.category.toLowerCase().includes(normalizedQuery);
+  const { containerRef, pullDistance, isThresholdReached, handleScroll } = useWebPullToRefresh({
+    isRefreshing,
+    onRefresh: refresh,
+  });
 
-      return matchesCategory && matchesStatus && matchesSearch;
-    });
-  }, [searchQuery, selectedCategory, statusFilter]);
+  const handleSelectMachine = useCallback((machine: Machine) => {
+    const statusLabel = getMachineStatusConfig(machine.estado_equipo).label;
+    const brandModel = [machine.marca?.nombre, machine.modelo].filter(Boolean).join(' · ');
+
+    Alert.alert(
+      machine.nombre,
+      `Código: ${machine.codigo_interno}\nCategoría: ${machine.categoria.nombre}${
+        brandModel ? `\nEquipo: ${brandModel}` : ''
+      }\nEstado: ${statusLabel}`,
+    );
+  }, []);
+
+  const renderMachineItem = useCallback(
+    ({ item }: ListRenderItemInfo<Machine>) => (
+      <View className="w-full max-w-xl self-center px-4 pb-3">
+        <MachineCard machine={item} onPress={handleSelectMachine} />
+      </View>
+    ),
+    [handleSelectMachine],
+  );
+
+  const keyExtractor = useCallback((item: Machine) => item.id, []);
 
   return (
     <View className="flex-1 bg-[#f8fafc]">
@@ -146,26 +89,19 @@ export default function MachinesScreen() {
         showConnectivity={false}
       />
 
-      <ScrollView
-        className="flex-1"
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{
-          paddingTop: 16,
-          paddingBottom: Math.max(insets.bottom, 16) + 92,
-        }}
-      >
+      {/* Zona superior fija: Buscador, Categorías y Contador/Filtro */}
+      <View className="z-10 border-b border-slate-200/70 bg-[#f8fafc] pt-4 pb-2.5">
         <View className="w-full max-w-xl self-center">
-          {/* Buscador + Botón de escaneo QR */}
+          {/* Buscador */}
           <View className="flex-row items-center gap-2.5 px-4">
             <View className="min-h-[46px] flex-1 flex-row items-center rounded-xl border border-slate-200 bg-white px-3.5">
               <Search size={18} color="#64748b" strokeWidth={2} />
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="Buscar por nombre o código"
+                placeholder="Buscar por nombre, marca o código"
                 placeholderTextColor="#94a3b8"
-                accessibilityLabel="Buscar equipo por nombre o código"
+                accessibilityLabel="Buscar equipo por nombre, marca o código"
                 returnKeyType="search"
                 autoCorrect={false}
                 className="ml-2.5 flex-1 py-2 text-base text-slate-900"
@@ -189,6 +125,7 @@ export default function MachinesScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
             contentContainerStyle={{
               paddingHorizontal: 16,
               paddingTop: 12,
@@ -196,7 +133,7 @@ export default function MachinesScreen() {
               gap: 8,
             }}
           >
-            {CATEGORIES.map((category) => {
+            {categories.map((category) => {
               const isSelected = selectedCategory === category;
 
               return (
@@ -226,9 +163,11 @@ export default function MachinesScreen() {
           </ScrollView>
 
           {/* Contador de equipos y botón Filtrar */}
-          <View className="mt-3 flex-row items-center justify-between px-4">
+          <View className="mt-2 flex-row items-center justify-between px-4">
             <Text className="text-xs font-medium text-slate-500">
-              {filteredMachines.length} {filteredMachines.length === 1 ? 'equipo' : 'equipos'}
+              {isLoading
+                ? 'Cargando equipos...'
+                : `${totalCount} ${totalCount === 1 ? 'equipo' : 'equipos'}`}
             </Text>
 
             <Pressable
@@ -236,7 +175,7 @@ export default function MachinesScreen() {
               accessibilityRole="button"
               accessibilityLabel="Filtrar equipos por estado operativo"
               accessibilityState={{ expanded: isFilterOpen }}
-              className="min-h-[36px] flex-row items-center gap-1.5 rounded-lg px-2 py-1.5 active:bg-slate-100"
+              className="min-h-[34px] flex-row items-center gap-1.5 rounded-lg px-2 py-1 active:bg-slate-100"
               style={{ cursor: 'pointer' }}
             >
               <SlidersHorizontal size={15} color="#2563eb" strokeWidth={2.2} />
@@ -277,74 +216,121 @@ export default function MachinesScreen() {
               })}
             </View>
           ) : null}
+        </View>
+      </View>
 
-          {/* Listado de tarjetas de equipos */}
-          <View className="mt-2.5 flex-col gap-3 px-4">
-            {filteredMachines.length === 0 ? (
-              <View className="items-center rounded-2xl border border-slate-200/80 bg-white px-5 py-8 shadow-sm">
-                <Text className="text-center text-sm font-semibold text-slate-800">
-                  No se encontraron equipos
-                </Text>
-                <Text className="mt-1 text-center text-xs text-slate-500">
-                  Prueba ajustando el texto de búsqueda o los filtros seleccionados.
-                </Text>
-              </View>
-            ) : (
-              filteredMachines.map((machine) => {
-                const statusInfo = getStatusConfig(machine.status);
+      {/* Lista virtualizada y paginada con soporte Pull-to-Refresh en Android y Web PWA */}
+      <View ref={containerRef} className="flex-1">
+        {Platform.OS === 'web' && (pullDistance > 0 || isRefreshing) ? (
+          <View
+            accessible={true}
+            accessibilityRole="progressbar"
+            accessibilityLabel="Actualizando listado de máquinas"
+            style={{ height: isRefreshing ? 52 : pullDistance }}
+            className="w-full max-w-xl items-center justify-center self-center overflow-hidden px-4"
+          >
+            <View className="flex-row items-center gap-2 rounded-full border border-slate-200/80 bg-white px-3.5 py-1.5 shadow-sm">
+              {isRefreshing ? (
+                <ActivityIndicator size="small" color="#2563eb" />
+              ) : (
+                <View
+                  style={{
+                    transform: [{ rotate: `${Math.min(180, Math.round(pullDistance * 2.5))}deg` }],
+                  }}
+                >
+                  <RefreshCw
+                    size={15}
+                    color={isThresholdReached ? '#2563eb' : '#64748b'}
+                    strokeWidth={2.2}
+                  />
+                </View>
+              )}
+              <Text className="text-xs font-medium text-slate-600">
+                {isRefreshing
+                  ? 'Actualizando equipos...'
+                  : isThresholdReached
+                    ? 'Suelta para actualizar'
+                    : 'Desliza hacia abajo para actualizar'}
+              </Text>
+            </View>
+          </View>
+        ) : null}
 
-                return (
+        <FlatList
+          data={isLoading ? [] : machines}
+          keyExtractor={keyExtractor}
+          renderItem={renderMachineItem}
+          className="flex-1"
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          onEndReached={() => void loadMore()}
+          onEndReachedThreshold={0.4}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={() => void refresh()}
+              tintColor="#2563eb"
+              colors={['#2563eb']}
+            />
+          }
+          contentContainerStyle={{
+            paddingTop: 12,
+            paddingBottom: Math.max(insets.bottom, 16) + 92,
+          }}
+          ListEmptyComponent={
+            <View className="w-full max-w-xl self-center px-4">
+              {isLoading ? (
+                <MachineCardSkeletonList count={6} />
+              ) : error ? (
+                <View className="items-center rounded-2xl border border-red-200 bg-white px-5 py-7 shadow-sm">
+                  <View className="mb-2.5 h-11 w-11 items-center justify-center rounded-xl bg-red-50">
+                    <AlertCircle size={22} color="#dc2626" strokeWidth={2} />
+                  </View>
+                  <Text className="text-center text-sm font-semibold text-slate-900">
+                    No se pudieron cargar las máquinas
+                  </Text>
+                  <Text className="mt-1 text-center text-xs leading-relaxed text-slate-500">
+                    {error}
+                  </Text>
                   <Pressable
-                    key={machine.id}
+                    onPress={() => void refresh()}
                     accessibilityRole="button"
-                    accessibilityLabel={`${machine.name}, ${machine.category}, código ${machine.code}, estado ${statusInfo.label}`}
-                    className="flex-row items-center rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm active:bg-slate-50"
+                    accessibilityLabel="Reintentar carga de máquinas"
+                    className="mt-4 min-h-[40px] flex-row items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 active:bg-blue-700"
                     style={{ cursor: 'pointer' }}
                   >
-                    {/* Miniatura del equipo */}
-                    <View className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-slate-200">
-                      <Image
-                        source={machine.imageSource}
-                        style={{ width: '100%', height: '100%' }}
-                        contentFit="cover"
-                        contentPosition="center"
-                      />
-                    </View>
-
-                    {/* Información principal del equipo (sin badge de reparación pendiente) */}
-                    <View className="ml-3.5 min-w-0 flex-1 justify-center">
-                      <Text
-                        numberOfLines={1}
-                        className="text-base font-bold leading-snug text-slate-900"
-                      >
-                        {machine.name}
-                      </Text>
-
-                      <Text numberOfLines={1} className="mt-0.5 text-xs font-medium text-slate-500">
-                        {machine.category} · {machine.code}
-                      </Text>
-
-                      <View className="mt-2 flex-row items-center">
-                        <View
-                          className={`mr-2 h-2.5 w-2.5 rounded-full ${statusInfo.dotClassName}`}
-                        />
-                        <Text className={`text-xs font-semibold ${statusInfo.textClassName}`}>
-                          {statusInfo.label}
-                        </Text>
-                      </View>
-                    </View>
-
-                    {/* Indicador de navegación */}
-                    <View className="ml-2 pl-1">
-                      <ChevronRight size={20} color="#64748b" strokeWidth={2} />
-                    </View>
+                    <RefreshCw size={14} color="#ffffff" strokeWidth={2.2} />
+                    <Text className="text-xs font-semibold text-white">Reintentar</Text>
                   </Pressable>
-                );
-              })
-            )}
-          </View>
-        </View>
-      </ScrollView>
+                </View>
+              ) : (
+                <View className="items-center rounded-2xl border border-slate-200/80 bg-white px-5 py-8 shadow-sm">
+                  <Text className="text-center text-sm font-semibold text-slate-800">
+                    No se encontraron equipos
+                  </Text>
+                  <Text className="mt-1 text-center text-xs text-slate-500">
+                    Prueba ajustando el texto de búsqueda o los filtros seleccionados.
+                  </Text>
+                </View>
+              )}
+            </View>
+          }
+          ListFooterComponent={
+            isLoadingMore ? (
+              <View className="w-full max-w-xl self-center px-4 pt-1 pb-2">
+                <MachineCardSkeletonList count={2} />
+              </View>
+            ) : null
+          }
+        />
+      </View>
     </View>
   );
 }

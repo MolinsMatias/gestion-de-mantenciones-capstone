@@ -12,7 +12,7 @@ export interface MaintenanceCardProps {
 /**
  * Renders the circular leading icon corresponding to the maintenance task type.
  */
-function MaintenanceLeadingIcon({ type }: { type: MaintenanceItem['iconType'] }) {
+function MaintenanceLeadingIcon({ type }: { type: MaintenanceItem['tipo_icono'] }) {
   if (type === 'zap') {
     return (
       <View
@@ -70,13 +70,13 @@ export function MaintenanceCard({ item, onPress }: MaintenanceCardProps) {
     <Pressable
       onPress={() => onPress?.(item)}
       accessibilityRole="button"
-      accessibilityLabel={`${item.title}, ${item.category}, ${item.location}, programado para ${item.timeLabel}`}
+      accessibilityLabel={`${item.titulo}, ${item.categoria}, ${item.ubicacion}, programado para ${item.etiqueta_tiempo}`}
       accessibilityHint="Toca para ver los detalles de esta mantención"
       className="mb-3 flex-row items-center rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm active:bg-slate-50/90"
       style={onPress ? { cursor: 'pointer' } : undefined}
     >
       {/* Icono circular a la izquierda */}
-      <MaintenanceLeadingIcon type={item.iconType} />
+      <MaintenanceLeadingIcon type={item.tipo_icono} />
 
       {/* Contenido central: Título + hora en primera fila, categoría y ubicación */}
       <View className="min-w-0 flex-1 ml-3.5 mr-2">
@@ -86,9 +86,11 @@ export function MaintenanceCard({ item, onPress }: MaintenanceCardProps) {
             ellipsizeMode="tail"
             className="flex-1 text-[15px] font-bold leading-snug text-slate-900"
           >
-            {item.title}
+            {item.titulo}
           </Text>
-          <Text className="shrink-0 text-xs font-medium text-slate-400">{item.timeLabel}</Text>
+          <Text className="shrink-0 text-xs font-medium text-slate-400">
+            {item.etiqueta_tiempo}
+          </Text>
         </View>
 
         <Text
@@ -96,7 +98,7 @@ export function MaintenanceCard({ item, onPress }: MaintenanceCardProps) {
           ellipsizeMode="tail"
           className="mt-0.5 text-xs leading-tight text-slate-500"
         >
-          {item.category}
+          {item.categoria}
         </Text>
 
         <View className="mt-1.5 flex-row items-center gap-1">
@@ -106,7 +108,7 @@ export function MaintenanceCard({ item, onPress }: MaintenanceCardProps) {
             ellipsizeMode="tail"
             className="text-xs font-normal text-slate-500"
           >
-            {item.location}
+            {item.ubicacion}
           </Text>
         </View>
       </View>

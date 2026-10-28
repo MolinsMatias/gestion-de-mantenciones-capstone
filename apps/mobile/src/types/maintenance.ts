@@ -2,10 +2,10 @@ export type MachineType = 'all' | 'pinsetter' | 'lanes' | 'ball_return' | 'scori
 
 export interface MaintenanceItem {
   id: string;
-  title: string;
-  category: string;
-  machineType: MachineType;
-  location: string;
-  timeLabel: string;
-  iconType: 'wrench' | 'zap' | 'settings' | 'completed';
+  titulo: string;
+  categoria: string;
+  tipo_maquina: MachineType;
+  ubicacion: string;
+  etiqueta_tiempo: string;
+  tipo_icono: 'wrench' | 'zap' | 'settings' | 'completed';
 }

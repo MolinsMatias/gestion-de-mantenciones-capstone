@@ -22,48 +22,48 @@ const FILTER_TABS: FilterTab[] = [
 const MAINTENANCE_ITEMS: MaintenanceItem[] = [
   {
     id: '1',
-    title: 'Revisión de pista 3',
-    category: 'Mecánica de pista',
-    machineType: 'lanes',
-    location: 'Mampato - Las Condes',
-    timeLabel: 'Hoy, 14:00',
-    iconType: 'wrench',
+    titulo: 'Revisión de pista 3',
+    categoria: 'Mecánica de pista',
+    tipo_maquina: 'lanes',
+    ubicacion: 'Mampato - Las Condes',
+    etiqueta_tiempo: 'Hoy, 14:00',
+    tipo_icono: 'wrench',
   },
   {
     id: '2',
-    title: 'Calibración de sensórica',
-    category: 'Sistemas de puntuación',
-    machineType: 'scoring',
-    location: 'Mampato - Las Condes',
-    timeLabel: 'Hoy, 10:30',
-    iconType: 'zap',
+    titulo: 'Calibración de sensórica',
+    categoria: 'Sistemas de puntuación',
+    tipo_maquina: 'scoring',
+    ubicacion: 'Mampato - Las Condes',
+    etiqueta_tiempo: 'Hoy, 10:30',
+    tipo_icono: 'zap',
   },
   {
     id: '3',
-    title: 'Limpieza de retorno de bolas',
-    category: 'Mecánica / Limpieza',
-    machineType: 'ball_return',
-    location: 'Happyland - Viña del Mar',
-    timeLabel: 'Ayer, 13:00',
-    iconType: 'settings',
+    titulo: 'Limpieza de retorno de bolas',
+    categoria: 'Mecánica / Limpieza',
+    tipo_maquina: 'ball_return',
+    ubicacion: 'Happyland - Viña del Mar',
+    etiqueta_tiempo: 'Ayer, 13:00',
+    tipo_icono: 'settings',
   },
   {
     id: '4',
-    title: 'Revisión de monitores',
-    category: 'Electrónica / Software',
-    machineType: 'scoring',
-    location: 'Monticello - San Francisco',
-    timeLabel: 'Ayer, 11:20',
-    iconType: 'completed',
+    titulo: 'Revisión de monitores',
+    categoria: 'Electrónica / Software',
+    tipo_maquina: 'scoring',
+    ubicacion: 'Monticello - San Francisco',
+    etiqueta_tiempo: 'Ayer, 11:20',
+    tipo_icono: 'completed',
   },
   {
     id: '5',
-    title: 'Mantención preventiva',
-    category: 'Pinsetter GS-X',
-    machineType: 'pinsetter',
-    location: 'Mampato - Las Condes',
-    timeLabel: 'Ayer, 09:00',
-    iconType: 'wrench',
+    titulo: 'Mantención preventiva',
+    categoria: 'Pinsetter GS-X',
+    tipo_maquina: 'pinsetter',
+    ubicacion: 'Mampato - Las Condes',
+    etiqueta_tiempo: 'Ayer, 09:00',
+    tipo_icono: 'wrench',
   },
 ];
 
@@ -73,11 +73,11 @@ export default function HistoryScreen() {
 
   const filteredItems = useMemo(() => {
     if (selectedFilter === 'all') return MAINTENANCE_ITEMS;
-    return MAINTENANCE_ITEMS.filter((item) => item.machineType === selectedFilter);
+    return MAINTENANCE_ITEMS.filter((item) => item.tipo_maquina === selectedFilter);
   }, [selectedFilter]);
 
   const handleSelectMaintenance = (item: MaintenanceItem) => {
-    Alert.alert(item.title, `${item.category}\nUbicación: ${item.location}`);
+    Alert.alert(item.titulo, `${item.categoria}\nUbicación: ${item.ubicacion}`);
   };
 
   return (

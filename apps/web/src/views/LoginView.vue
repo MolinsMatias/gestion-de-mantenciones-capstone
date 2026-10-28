@@ -8,9 +8,15 @@ import {
   EyeSlashIcon,
   LockClosedIcon,
 } from '@heroicons/vue/24/outline'
+
 import { useAuthStore } from '../stores/auth'
 
+import { RouterLink,useRoute, useRouter } from 'vue-router'
+
+
 const auth = useAuthStore()
+const router = useRouter()
+const route = useRoute()
 
 const {
   autenticado,
@@ -33,6 +39,8 @@ async function ingresar(): Promise<void> {
   if (resultado) {
     password.value = ''
     mostrarPassword.value = false
+
+    await router.replace('/monitor')
   }
 }
 
@@ -61,6 +69,9 @@ function formatearRun(event: Event): void {
   run.value = `${cuerpoFormateado}-${dv}`
   input.value = run.value
 }
+
+
+
 </script>
 
 <template>
@@ -100,6 +111,22 @@ function formatearRun(event: Event): void {
         class="w-full max-w-md rounded-3xl border border-white bg-white p-8 shadow-xl shadow-slate-200/70 sm:p-10"
       >
         <p
+          v-if="route.query.acceso === 'denegado'"
+          role="alert"
+          class="mb-5 rounded-xl bg-amber-50 p-3 text-sm text-amber-800"
+        >
+          Este panel requiere una cuenta activa con rol administrador.
+        </p>
+
+        <p
+          v-else-if="route.query.acceso === 'error'"
+          role="alert"
+          class="mb-5 rounded-xl bg-red-50 p-3 text-sm text-red-700"
+        >
+          No se pudieron verificar tus permisos. Intenta nuevamente.
+        </p>
+
+        <p
           v-if="inicializando"
           role="status"
           class="text-center text-slate-500"
@@ -120,14 +147,6 @@ function formatearRun(event: Event): void {
 
           <p class="mt-3 text-sm leading-relaxed text-slate-500">
             El acceso con RUN y contraseña funcionó correctamente.
-          </p>
-
-          <p
-            v-if="error"
-            role="alert"
-            class="mt-4 text-sm text-red-700"
-          >
-            {{ error }}
           </p>
 
           <button

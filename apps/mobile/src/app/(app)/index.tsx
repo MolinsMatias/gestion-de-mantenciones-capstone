@@ -12,54 +12,16 @@ import {
   WifiOff,
   Wrench,
 } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LocalBottomSheet } from '@/components/local/local-bottom-sheet';
 import { AppHeader } from '@/components/shared/app-header';
-import type { Local } from '@/types/local';
+import { useLocals } from '@/hooks/use-locals';
+import { useNetworkStatus } from '@/hooks/use-network-status';
 
 const bowlingBg = require('@/assets/images/bowling-bg.jpg');
-
-const AVAILABLE_LOCALS: Local[] = [
-  {
-    id: 'mampato-las-condes',
-    name: 'Mampato - Las Condes',
-    commune: 'Las Condes, Santiago',
-    address: 'Av. Las Condes 12340',
-    totalLanes: 14,
-    operationalLanes: 13,
-    machineModel: 'Brunswick GS-X',
-  },
-  {
-    id: 'bowling-plaza-vespucio',
-    name: 'Bowling Mallplaza Vespucio',
-    commune: 'La Florida, Santiago',
-    address: 'Av. Vicuña Mackenna 7110',
-    totalLanes: 16,
-    operationalLanes: 15,
-    machineModel: 'AMF 82-70 Solid State',
-  },
-  {
-    id: 'bowling-parque-arauco',
-    name: 'Bowling Parque Arauco',
-    commune: 'Las Condes, Santiago',
-    address: 'Av. Kennedy 5413',
-    totalLanes: 12,
-    operationalLanes: 12,
-    machineModel: 'Brunswick GS-X NextGen',
-  },
-  {
-    id: 'bowling-plaza-oeste',
-    name: 'Bowling Mallplaza Oeste',
-    commune: 'Cerrillos, Santiago',
-    address: 'Av. Américo Vespucio 1501',
-    totalLanes: 18,
-    operationalLanes: 16,
-    machineModel: 'Brunswick GS-98',
-  },
-];
 
 interface BitacoraItem {
   id: string;
@@ -113,37 +75,12 @@ export default function HomeScreen() {
     router.push('/(app)/machines');
   };
 
-  const [isOnline, setIsOnline] = useState<boolean>(() => {
-    if (
-      Platform.OS === 'web' &&
-      typeof navigator !== 'undefined' &&
-      typeof navigator.onLine === 'boolean'
-    ) {
-      return navigator.onLine;
-    }
-    return true;
-  });
+  const { isOnline, isSimulatingOffline, toggleSimulatedOffline, checkConnectivityNow } =
+    useNetworkStatus();
 
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
-  const [activeLocal, setActiveLocal] = useState<Local>(AVAILABLE_LOCALS[0]);
+  const { locals, activeLocal, isLoading: isLoadingLocals, selectLocal } = useLocals();
   const [isLocalSheetOpen, setIsLocalSheetOpen] = useState(false);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined') {
-      return;
-    }
-
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
 
   const handleConnectivityPress = () => {
     setIsStatusModalOpen(true);
@@ -163,7 +100,7 @@ export default function HomeScreen() {
 
         {/* Contenido principal con desplazamiento centrado */}
         <View className="-mt-3.5 w-full max-w-xl flex-col gap-4 self-center px-4">
-          {/* Tarjeta de contexto del recinto activo */}
+          {/* Tarjeta de contexto del local activo */}
           <View
             className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm"
             style={{ borderRadius: 16 }}
@@ -186,30 +123,32 @@ export default function HomeScreen() {
                 <View className="flex-row items-center gap-1 rounded-full bg-white/90 px-2.5 py-0.5 shadow-sm">
                   <MapPin size={12} color="#2563eb" strokeWidth={2.2} />
                   <Text className="text-[10px] font-semibold text-slate-800">
-                    {activeLocal.name}
+                    {activeLocal?.nombre ?? 'Cargando local...'}
                   </Text>
                 </View>
               </View>
 
-              {/* Información de la sala y botón cambiar recinto */}
+              {/* Información del local y botón cambiar local */}
               <View className="absolute inset-x-3 bottom-2.5 flex-row items-center justify-between">
-                <View>
-                  <Text className="text-[11px] font-medium text-slate-200">
-                    Sala de Bowling Activa
-                  </Text>
-                  <Text className="text-xs font-semibold text-white">
-                    {activeLocal.totalLanes} Pistas {activeLocal.machineModel}
+                <View className="mr-3 flex-1">
+                  <Text className="text-[11px] font-medium text-slate-200">Local activo</Text>
+                  <Text numberOfLines={1} className="text-xs font-semibold text-white">
+                    {activeLocal
+                      ? [activeLocal.direccion, activeLocal.comuna_nombre]
+                          .filter(Boolean)
+                          .join(' • ')
+                      : 'Obteniendo ubicación...'}
                   </Text>
                 </View>
 
                 <Pressable
                   onPress={() => setIsLocalSheetOpen(true)}
                   accessibilityRole="button"
-                  accessibilityLabel="Cambiar sala de bowling activa"
-                  className="rounded-lg border border-white/20 bg-white/20 px-2.5 py-1 active:bg-white/30"
+                  accessibilityLabel="Cambiar local activo"
+                  className="shrink-0 rounded-lg border border-white/20 bg-white/20 px-2.5 py-1 active:bg-white/30"
                   style={{ cursor: 'pointer' }}
                 >
-                  <Text className="text-[11px] font-semibold text-white">Cambiar recinto</Text>
+                  <Text className="text-[11px] font-semibold text-white">Cambiar local</Text>
                 </Pressable>
               </View>
             </View>
@@ -219,13 +158,21 @@ export default function HomeScreen() {
               <View className="flex-row items-center gap-1.5">
                 <View
                   className={`h-2 w-2 rounded-full ${
-                    activeLocal.operationalLanes === activeLocal.totalLanes
+                    !activeLocal ||
+                    activeLocal.total_maquinas === 0 ||
+                    activeLocal.maquinas_operativas === activeLocal.total_maquinas
                       ? 'bg-emerald-500'
                       : 'bg-amber-500'
                   }`}
                 />
                 <Text className="text-xs font-medium text-slate-700">
-                  {activeLocal.operationalLanes}/{activeLocal.totalLanes} pistas operativas
+                  {activeLocal
+                    ? `${activeLocal.maquinas_operativas}/${activeLocal.total_maquinas} ${
+                        activeLocal.total_maquinas === 1
+                          ? 'máquina operativa'
+                          : 'máquinas operativas'
+                      }`
+                    : 'Consultando estado de equipos...'}
                 </Text>
               </View>
             </View>
@@ -513,7 +460,11 @@ export default function HomeScreen() {
             <View className="mt-6 flex-col gap-2.5">
               <Pressable
                 onPress={() => {
-                  setIsOnline((prev) => !prev);
+                  if (isOnline || isSimulatingOffline) {
+                    toggleSimulatedOffline();
+                  } else {
+                    void checkConnectivityNow();
+                  }
                   setIsStatusModalOpen(false);
                 }}
                 accessibilityRole="button"
@@ -524,7 +475,11 @@ export default function HomeScreen() {
                 style={{ cursor: 'pointer' }}
               >
                 <Text className="text-sm font-bold text-white">
-                  {isOnline ? 'Simular modo local (prueba)' : 'Restablecer conexión (En línea)'}
+                  {isOnline
+                    ? 'Simular modo local (prueba)'
+                    : isSimulatingOffline
+                      ? 'Restablecer conexión (En línea)'
+                      : 'Verificar conexión ahora'}
                 </Text>
               </Pressable>
 
@@ -542,12 +497,13 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
-      {/* Bottom Sheet accesible para cambiar de recinto */}
+      {/* Bottom Sheet accesible para cambiar de local */}
       <LocalBottomSheet
         visible={isLocalSheetOpen}
-        locals={AVAILABLE_LOCALS}
-        activeLocalId={activeLocal.id}
-        onSelect={(newLocal) => setActiveLocal(newLocal)}
+        locals={locals}
+        activeLocalId={activeLocal?.id ?? null}
+        isLoading={isLoadingLocals}
+        onSelect={(newLocal) => selectLocal(newLocal)}
         onClose={() => setIsLocalSheetOpen(false)}
       />
     </View>

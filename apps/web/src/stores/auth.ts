@@ -23,6 +23,31 @@ export const useAuthStore = defineStore('auth', () => {
         session.value = nuevaSession
     })
 
+
+    async function tieneAccesoAdministrativo(
+        userId: string,
+    ): Promise<boolean> {
+        const { data: perfil, error: perfilError } = await supabase
+            .from('usuario')
+            .select('activo, rol_id')
+            .eq('id', userId)
+            .single()
+
+        if (perfilError) throw perfilError
+
+        if (perfil.activo !== true) return false
+
+        const { data: rol, error: rolError } = await supabase
+            .from('rol')
+            .select('nombre')
+            .eq('id', perfil.rol_id)
+            .single()
+
+        if (rolError) throw rolError
+
+        return rol.nombre === 'administrador'
+    }
+
     async function inicializar(): Promise<void> {
         if (inicializacion) return inicializacion
 
@@ -102,6 +127,32 @@ export const useAuthStore = defineStore('auth', () => {
 
             if (authError || !authData.session) {
                 error.value = 'No se pudo guardar la sesión. Intenta nuevamente.'
+                return false
+            }
+
+            let permitido: boolean
+
+            try {
+                permitido = await tieneAccesoAdministrativo(
+                    authData.session.user.id,
+                )
+            } catch {
+                await supabase.auth.signOut({ scope: 'local' })
+                session.value = null
+
+                error.value =
+                    'No se pudieron verificar tus permisos. Intenta nuevamente.'
+
+                return false
+            }
+
+            if (!permitido) {
+                await supabase.auth.signOut({ scope: 'local' })
+                session.value = null
+
+                error.value =
+                    'Este panel requiere una cuenta activa con rol administrador.'
+
                 return false
             }
 

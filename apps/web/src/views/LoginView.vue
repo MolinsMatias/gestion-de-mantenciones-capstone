@@ -3,7 +3,6 @@ import { onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   ArrowRightIcon,
-  CheckCircleIcon,
   EyeIcon,
   EyeSlashIcon,
   LockClosedIcon,
@@ -135,29 +134,12 @@ function formatearRun(event: Event): void {
         </p>
 
         <!-- Confirmación temporal; luego mostraremos el monitor. -->
-        <div v-else-if="autenticado">
-          <CheckCircleIcon
-            class="size-12 text-emerald-600"
-            aria-hidden="true"
-          />
-
-          <h1 class="mt-5 text-2xl font-bold text-slate-900">
-            Sesión iniciada
-          </h1>
-
-          <p class="mt-3 text-sm leading-relaxed text-slate-500">
-            El acceso con RUN y contraseña funcionó correctamente.
-          </p>
-
-          <button
-            type="button"
-            :disabled="cargando"
-            class="mt-6 w-full rounded-xl bg-slate-900 px-4 py-3 font-semibold text-white disabled:opacity-50"
-            @click="auth.cerrarSesion()"
-          >
-            {{ cargando ? 'Cerrando sesión…' : 'Cerrar sesión' }}
-          </button>
-        </div>
+        <p
+          v-if="inicializando"
+          role="status"
+          class="text-center text-slate-500">
+          Comprobando sesión…
+        </p>
 
         <template v-else>
           <div

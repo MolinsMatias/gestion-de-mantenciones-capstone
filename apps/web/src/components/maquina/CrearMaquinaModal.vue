@@ -12,7 +12,7 @@ const guardando = ref(false)
 const errorCarga = ref('')
 const errorGuardar = ref('')
 const formulario = reactive({
-  nombre: '', codigo_interno: '', local_id: '', categoria_id: '', marca_id: '', modelo: '', activo: true,
+  nombre: '', local_id: '', categoria_id: '', marca_id: '', modelo: '', activo: true,
 })
 let controller: AbortController | null = null
 let desmontado = false
@@ -100,14 +100,8 @@ onBeforeUnmount(() => {
               placeholder="Ej.: Pinsetter pista 4"
               class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:opacity-60" />
           </div>
-          <div>
-            <label for="maquina-codigo" class="block text-sm font-semibold">Código interno</label>
-            <input id="maquina-codigo" v-model="formulario.codigo_interno" type="text" required :disabled="guardando"
-              placeholder="Ej.: BS-PIN-004"
-              class="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:opacity-60" />
-            <p class="mt-2 text-xs text-slate-500">Debe ser único en el sistema.</p>
-          </div>
-          <div>
+
+          <div class="sm:col-span-2">
             <label for="maquina-local" class="block text-sm font-semibold">Local</label>
             <select id="maquina-local" v-model="formulario.local_id" required :disabled="guardando || cargando"
               class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:opacity-60">

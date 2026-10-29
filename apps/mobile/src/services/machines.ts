@@ -9,12 +9,15 @@ import type {
   MachineStatus,
   MachineStatusFilter,
   PaginatedMachinesResult,
+  QrMachineResolutionResult,
 } from '@/types/machine';
 
 export const MACHINES_PAGE_SIZE = 15;
 
 const MACHINES_CACHE_KEY = '@bowling_services/machines_cache';
+const MACHINES_CATALOG_CACHE_KEY = '@bowling_services/machines_catalog_cache';
 const CATEGORIES_CACHE_KEY = '@bowling_services/machine_categories_cache';
+const UUID_REGEX = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const MACHINE_IMAGES_BUCKET = 'img_maquinas';
 const SIGNED_URL_EXPIRY_SECONDS = 3600;
 const SIGNED_URL_CACHE_TTL_MS = 45 * 60 * 1000;
@@ -534,4 +537,243 @@ export async function getCachedMachines(localId?: string): Promise<Machine[] | n
     console.warn('Error reading machines from local cache:', err);
   }
   return null;
+}
+
+/**
+ * Extracts a lowercase UUID from a scanned QR code string.
+ * Returns `null` immediately if the QR payload does not contain a valid UUID.
+ */
+export function extractMachineUuidFromQr(rawQr: string): string | null {
+  const trimmed = rawQr.trim();
+  if (!trimmed) return null;
+  const match = trimmed.match(UUID_REGEX);
+  return match ? match[0].toLowerCase() : null;
+}
+
+function mapRawMachineRow(
+  row: Record<string, unknown>,
+  latestMaintenance?: LatestMaintenanceSummary,
+  signedUrlsMap?: Map<string, string>,
+): Machine | null {
+  if (typeof row.id !== 'string') return null;
+
+  const id = row.id;
+  const localId = typeof row.local_id === 'string' ? row.local_id : '';
+  const categoryId = typeof row.categoria_id === 'string' ? row.categoria_id : '';
+  const brandId = typeof row.marca_id === 'string' ? row.marca_id : null;
+  const photoPath = typeof row.foto_path === 'string' ? row.foto_path.trim() : null;
+
+  return {
+    id,
+    local_id: localId,
+    categoria_id: categoryId,
+    codigo_interno: typeof row.codigo_interno === 'string' ? row.codigo_interno : '',
+    nombre: typeof row.nombre === 'string' ? row.nombre : 'Equipo sin nombre',
+    marca_id: brandId,
+    modelo: typeof row.modelo === 'string' && row.modelo.trim() ? row.modelo.trim() : null,
+    foto_path: photoPath,
+    foto_url: photoPath ? (signedUrlsMap?.get(photoPath) ?? null) : null,
+    activo: Boolean(row.activo),
+    created_at: typeof row.created_at === 'string' ? row.created_at : '',
+    categoria: parseCategory(row.categoria, categoryId),
+    marca: parseBrand(row.marca, brandId),
+    estado_equipo: latestMaintenance?.status ?? 'operativa',
+    ultima_mantencion_at: latestMaintenance?.finishedAt ?? null,
+  };
+}
+
+/**
+ * Pre-syncs the full active machine catalog into AsyncStorage so QR scanning
+ * works 100% offline even for machines that haven't been scrolled into view yet.
+ */
+export async function syncAllActiveMachinesForOfflineCache(): Promise<void> {
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('maquina')
+      .select(
+        'id, local_id, categoria_id, codigo_interno, nombre, marca_id, modelo, foto_path, activo, created_at, categoria:categoria_id(id, nombre), marca:marca_id(id, nombre)',
+      )
+      .eq('activo', true)
+      .order('codigo_interno', { ascending: true });
+
+    if (error || !Array.isArray(data)) return;
+
+    const rawRows: Record<string, unknown>[] = [];
+    const machineIds: string[] = [];
+    const photoPaths: (string | null)[] = [];
+
+    for (const row of data) {
+      if (isRecord(row) && typeof row.id === 'string') {
+        rawRows.push(row);
+        machineIds.push(row.id);
+        photoPaths.push(typeof row.foto_path === 'string' ? row.foto_path : null);
+      }
+    }
+
+    const [latestMaintenanceMap, signedUrlsMap] = await Promise.all([
+      fetchLatestMaintenanceByMachine(machineIds),
+      resolveMachinePhotoUrls(photoPaths),
+    ]);
+
+    const catalog: Machine[] = [];
+    for (const row of rawRows) {
+      const mapped = mapRawMachineRow(row, latestMaintenanceMap.get(String(row.id)), signedUrlsMap);
+      if (mapped) {
+        catalog.push(mapped);
+      }
+    }
+
+    await AsyncStorage.setItem(MACHINES_CATALOG_CACHE_KEY, JSON.stringify(catalog));
+  } catch (err) {
+    console.warn('Could not pre-sync full machine catalog for offline QR resolution:', err);
+  }
+}
+
+async function upsertSingleMachineInCatalogCache(machine: Machine): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(MACHINES_CATALOG_CACHE_KEY);
+    const list: Machine[] = [];
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (isRecord(item) && typeof item.id === 'string' && typeof item.nombre === 'string') {
+            list.push(item as unknown as Machine);
+          }
+        }
+      }
+    }
+    const byId = new Map<string, Machine>();
+    for (const item of list) {
+      byId.set(item.id.toLowerCase(), item);
+    }
+    byId.set(machine.id.toLowerCase(), machine);
+    await AsyncStorage.setItem(
+      MACHINES_CATALOG_CACHE_KEY,
+      JSON.stringify(Array.from(byId.values())),
+    );
+  } catch {
+    // Ignore storage errors silently
+  }
+}
+
+async function findCachedMachineByUuid(uuid: string): Promise<Machine | null> {
+  const normalizedTarget = uuid.toLowerCase();
+
+  try {
+    const catalogRaw = await AsyncStorage.getItem(MACHINES_CATALOG_CACHE_KEY);
+    if (catalogRaw) {
+      const parsed: unknown = JSON.parse(catalogRaw);
+      if (Array.isArray(parsed)) {
+        const match = parsed.find(
+          (item): item is Machine =>
+            isRecord(item) &&
+            typeof item.id === 'string' &&
+            item.id.toLowerCase() === normalizedTarget,
+        );
+        if (match) return match;
+      }
+    }
+  } catch {
+    // Fallback to paginated cache below
+  }
+
+  const cachedAll = await getCachedMachines();
+  if (cachedAll) {
+    const match = cachedAll.find((item) => item.id.toLowerCase() === normalizedTarget);
+    if (match) return match;
+  }
+
+  return null;
+}
+
+/**
+ * Resolves a scanned QR code (containing a machine UUID) against Supabase
+ * with automatic offline fallback to the local AsyncStorage machine catalog.
+ */
+export async function resolveMachineByQrCode(
+  rawQr: string,
+  options?: { preferOffline?: boolean },
+): Promise<QrMachineResolutionResult> {
+  const uuid = extractMachineUuidFromQr(rawQr);
+
+  if (!uuid) {
+    return {
+      estado_resolucion: 'invalid_qr',
+      maquina: null,
+      uuid_detectado: null,
+      desde_cache: false,
+    };
+  }
+
+  if (options?.preferOffline) {
+    const cachedMachine = await findCachedMachineByUuid(uuid);
+    return {
+      estado_resolucion: cachedMachine ? 'found' : 'not_found',
+      maquina: cachedMachine,
+      uuid_detectado: uuid,
+      desde_cache: true,
+    };
+  }
+
+  try {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from('maquina')
+      .select(
+        'id, local_id, categoria_id, codigo_interno, nombre, marca_id, modelo, foto_path, activo, created_at, categoria:categoria_id(id, nombre), marca:marca_id(id, nombre)',
+      )
+      .eq('id', uuid)
+      .eq('activo', true)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (!data || !isRecord(data)) {
+      return {
+        estado_resolucion: 'not_found',
+        maquina: null,
+        uuid_detectado: uuid,
+        desde_cache: false,
+      };
+    }
+
+    const photoPath = typeof data.foto_path === 'string' ? data.foto_path : null;
+    const [latestMaintenanceMap, signedUrlsMap] = await Promise.all([
+      fetchLatestMaintenanceByMachine([uuid]),
+      resolveMachinePhotoUrls([photoPath]),
+    ]);
+
+    const machine = mapRawMachineRow(data, latestMaintenanceMap.get(uuid), signedUrlsMap);
+
+    if (!machine) {
+      return {
+        estado_resolucion: 'not_found',
+        maquina: null,
+        uuid_detectado: uuid,
+        desde_cache: false,
+      };
+    }
+
+    void upsertSingleMachineInCatalogCache(machine);
+
+    return {
+      estado_resolucion: 'found',
+      maquina: machine,
+      uuid_detectado: uuid,
+      desde_cache: false,
+    };
+  } catch (err) {
+    console.warn('Error resolving QR machine from Supabase, falling back to local cache:', err);
+    const cachedMachine = await findCachedMachineByUuid(uuid);
+    return {
+      estado_resolucion: cachedMachine ? 'found' : 'not_found',
+      maquina: cachedMachine,
+      uuid_detectado: uuid,
+      desde_cache: true,
+    };
+  }
 }

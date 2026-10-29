@@ -1,10 +1,6 @@
-export interface ComunaOpcion {
-  id: string
-  nombre: string
-}
-
 export interface CrearLocalInput {
   nombre: string
+  prefijo: string
   direccion: string
   comuna_id: string
   activo: boolean

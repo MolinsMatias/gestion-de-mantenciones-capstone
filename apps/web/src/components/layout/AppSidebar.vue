@@ -11,10 +11,11 @@ defineEmits<{ salir: [] }>()
 <template>
   <aside class="flex flex-col bg-navy-900 px-5 py-6 text-white lg:fixed lg:inset-y-0 lg:w-64">
     <div class="flex items-center gap-3 px-2">
-      <img src="@/assets/images/logo.png" alt="Bowling Services" class="size-20" />
-      <div>
-        <p class="font-bold">Bowling Services</p>
-        <p class="text-xs text-slate-400">Panel administrador</p>
+
+      <div class="flex flex-col items-center px-4 pt-6 pb-5">
+        <img src="@/assets/images/logo.png" alt="Bowling Services" class="h-28 w-32 object-contain" />
+        <p class="mt-2 text-[11px] font-medium uppercase
+             tracking-[0.15em] text-slate-400">Panel administrador</p>
       </div>
     </div>
     <nav class="mt-8" aria-label="Navegación principal">

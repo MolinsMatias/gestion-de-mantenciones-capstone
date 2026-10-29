@@ -44,3 +44,12 @@ export interface PaginatedMachinesResult {
   totalCount: number;
   hasMore: boolean;
 }
+
+export type QrMachineResolutionStatus = 'found' | 'not_found' | 'invalid_qr';
+
+export interface QrMachineResolutionResult {
+  estado_resolucion: QrMachineResolutionStatus;
+  maquina: Machine | null;
+  uuid_detectado: string | null;
+  desde_cache: boolean;
+}

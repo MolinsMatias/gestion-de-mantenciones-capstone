@@ -1,13 +1,6 @@
+import * as Network from 'expo-network';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, Platform, type AppStateStatus } from 'react-native';
-
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL?.trim()?.replace(/\/+$/, '');
-const supabasePublishableKey = (
-  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.EXPO_PUBLIC_SUPABASE_KEY
-)?.trim();
-
-const PROBE_INTERVAL_MS = 3500;
-const PROBE_TIMEOUT_MS = 3000;
 
 export interface UseNetworkStatusResult {
   isOnline: boolean;
@@ -16,111 +9,85 @@ export interface UseNetworkStatusResult {
   checkConnectivityNow: () => Promise<boolean>;
 }
 
-async function probeInternetReachability(): Promise<boolean> {
+function isNetworkStateOnline(state: Network.NetworkState): boolean {
+  if (state.isConnected === false || state.isInternetReachable === false) {
+    return false;
+  }
+  return state.isConnected ?? true;
+}
+
+function getBrowserOnlineFallback(): boolean {
   if (
     Platform.OS === 'web' &&
     typeof navigator !== 'undefined' &&
-    typeof navigator.onLine === 'boolean' &&
-    !navigator.onLine
+    typeof navigator.onLine === 'boolean'
   ) {
-    return false;
+    return navigator.onLine;
   }
+  return true;
+}
 
-  const endpoint = supabaseUrl
-    ? `${supabaseUrl}/rest/v1/`
-    : 'https://clients3.google.com/generate_204';
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, PROBE_TIMEOUT_MS);
-
+async function readNetworkOnlineState(): Promise<boolean> {
   try {
-    const headers: Record<string, string> = {};
-    if (supabaseUrl && supabasePublishableKey) {
-      headers.apikey = supabasePublishableKey;
-    }
-
-    const response = await fetch(endpoint, {
-      method: 'HEAD',
-      headers,
-      cache: 'no-store',
-      signal: controller.signal,
-    });
-
-    return response.status > 0;
+    const state = await Network.getNetworkStateAsync();
+    return isNetworkStateOnline(state);
   } catch {
-    return false;
-  } finally {
-    clearTimeout(timeoutId);
+    return getBrowserOnlineFallback();
   }
 }
 
 /**
- * Detects real internet connectivity across both Android APK and Web PWA.
- * Combines browser `online`/`offline` events (Web), `AppState` foreground transitions
- * (when the user toggles Wi-Fi/Mobile Data in the Android quick settings shade),
- * and lightweight reachability probes against the backend.
+ * Detects real internet connectivity across both Android APK and Web PWA
+ * using native OS/browser connectivity events (`expo-network`) without HTTP polling.
  */
 export function useNetworkStatus(): UseNetworkStatusResult {
-  const [realIsOnline, setRealIsOnline] = useState<boolean>(() => {
-    if (
-      Platform.OS === 'web' &&
-      typeof navigator !== 'undefined' &&
-      typeof navigator.onLine === 'boolean'
-    ) {
-      return navigator.onLine;
-    }
-    return true;
-  });
-
+  const [realIsOnline, setRealIsOnline] = useState<boolean>(getBrowserOnlineFallback);
   const [isSimulatingOffline, setIsSimulatingOffline] = useState<boolean>(false);
-  const isCheckingRef = useRef<boolean>(false);
   const mountedRef = useRef<boolean>(true);
 
   const checkConnectivityNow = useCallback(async (): Promise<boolean> => {
-    if (isCheckingRef.current) {
-      return realIsOnline;
+    const online = await readNetworkOnlineState();
+    if (mountedRef.current) {
+      setRealIsOnline(online);
     }
-
-    isCheckingRef.current = true;
-    try {
-      const reachable = await probeInternetReachability();
-      if (mountedRef.current) {
-        setRealIsOnline(reachable);
-      }
-      return reachable;
-    } finally {
-      isCheckingRef.current = false;
-    }
-  }, [realIsOnline]);
+    return online;
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
 
-    void checkConnectivityNow();
-
-    // Intervalo periódico ligero para detectar apagado/encendido de Wi-Fi o datos móviles en Android APK
-    const intervalId = setInterval(() => {
-      if (AppState.currentState === 'active') {
-        void checkConnectivityNow();
+    void readNetworkOnlineState().then((online) => {
+      if (mountedRef.current) {
+        setRealIsOnline(online);
       }
-    }, PROBE_INTERVAL_MS);
+    });
 
-    // Al volver del panel de notificaciones/ajustes rápidos de Android, verificar de inmediato
+    let networkSubscription: { remove: () => void } | null = null;
+    try {
+      networkSubscription = Network.addNetworkStateListener((state) => {
+        if (mountedRef.current) {
+          setRealIsOnline(isNetworkStateOnline(state));
+        }
+      });
+    } catch {
+      // Fallback safely if native module is unavailable in an older binary
+    }
+
     const appStateSub = AppState.addEventListener('change', (nextState: AppStateStatus) => {
       if (nextState === 'active') {
         void checkConnectivityNow();
       }
     });
 
-    // En Web/PWA escuchar también los eventos nativos del navegador para respuesta instantánea
     const handleBrowserOnline = () => {
-      setRealIsOnline(true);
-      void checkConnectivityNow();
+      if (mountedRef.current) {
+        setRealIsOnline(true);
+      }
     };
     const handleBrowserOffline = () => {
-      setRealIsOnline(false);
+      if (mountedRef.current) {
+        setRealIsOnline(false);
+      }
     };
 
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -130,7 +97,7 @@ export function useNetworkStatus(): UseNetworkStatusResult {
 
     return () => {
       mountedRef.current = false;
-      clearInterval(intervalId);
+      networkSubscription?.remove();
       appStateSub.remove();
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         window.removeEventListener('online', handleBrowserOnline);

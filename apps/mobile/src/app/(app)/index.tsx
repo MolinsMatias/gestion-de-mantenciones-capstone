@@ -12,7 +12,7 @@ import {
   WifiOff,
   Wrench,
 } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,6 +20,7 @@ import { LocalBottomSheet } from '@/components/local/local-bottom-sheet';
 import { AppHeader } from '@/components/shared/app-header';
 import { useLocals } from '@/hooks/use-locals';
 import { useNetworkStatus } from '@/hooks/use-network-status';
+import { syncAllActiveMachinesForOfflineCache } from '@/services/machines';
 
 const bowlingBg = require('@/assets/images/bowling-bg.jpg');
 
@@ -81,6 +82,12 @@ export default function HomeScreen() {
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const { locals, activeLocal, isLoading: isLoadingLocals, selectLocal } = useLocals();
   const [isLocalSheetOpen, setIsLocalSheetOpen] = useState(false);
+
+  useEffect(() => {
+    if (isOnline) {
+      void syncAllActiveMachinesForOfflineCache();
+    }
+  }, [isOnline]);
 
   const handleConnectivityPress = () => {
     setIsStatusModalOpen(true);

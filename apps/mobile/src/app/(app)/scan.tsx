@@ -8,19 +8,24 @@ import {
 import { useFocusEffect } from 'expo-router';
 import {
   AlertCircle,
+  AlertTriangle,
   Camera,
   CameraOff,
   CheckCircle2,
+  ClipboardList,
   Flashlight,
   FlashlightOff,
   QrCode,
   RefreshCw,
   Settings,
   SwitchCamera,
+  WifiOff,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
+  ActivityIndicator,
+  Alert,
   Linking,
   Platform,
   Pressable,
@@ -40,7 +45,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { MachineCard } from '@/components/machines/machine-card';
 import { AppHeader } from '@/components/shared/app-header';
+import { useNetworkStatus } from '@/hooks/use-network-status';
+import { resolveMachineByQrCode, syncAllActiveMachinesForOfflineCache } from '@/services/machines';
+import type { Machine, QrMachineResolutionResult } from '@/types/machine';
 
 const SCAN_FRAME_SIZE = 232;
 const LASER_MAX_TRANSLATE = SCAN_FRAME_SIZE - 12;
@@ -49,17 +58,26 @@ export default function ScanScreen() {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
+  const { isOnline } = useNetworkStatus();
 
   const [facing, setFacing] = useState<CameraType>('back');
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isTorchOn, setIsTorchOn] = useState(false);
   const [scannedData, setScannedData] = useState<string | null>(null);
+  const [isResolvingMachine, setIsResolvingMachine] = useState(false);
+  const [qrResolution, setQrResolution] = useState<QrMachineResolutionResult | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
   const triedFallbackFacingRef = useRef(false);
 
   const laserTranslateY = useSharedValue(12);
+
+  useEffect(() => {
+    if (isOnline) {
+      void syncAllActiveMachinesForOfflineCache();
+    }
+  }, [isOnline]);
 
   useEffect(() => {
     let mounted = true;
@@ -161,6 +179,8 @@ export default function ScanScreen() {
       }
 
       setScannedData(null);
+      setQrResolution(null);
+      setIsResolvingMachine(false);
       setIsCameraReady(false);
       setIsCameraActive(true);
       return;
@@ -174,6 +194,8 @@ export default function ScanScreen() {
     }
 
     setScannedData(null);
+    setQrResolution(null);
+    setIsResolvingMachine(false);
     setIsCameraReady(false);
     setIsCameraActive(true);
   };
@@ -229,14 +251,36 @@ export default function ScanScreen() {
 
   const handleBarcodeScanned = (result: BarcodeScanningResult) => {
     if (scannedData || !result?.data) return;
-    setScannedData(result.data.trim());
+    const rawValue = result.data.trim();
+    if (!rawValue) return;
+
+    setScannedData(rawValue);
     setIsTorchOn(false);
+    setIsResolvingMachine(true);
+    setQrResolution(null);
+
+    void resolveMachineByQrCode(rawValue, { preferOffline: !isOnline })
+      .then((resolution) => {
+        setQrResolution(resolution);
+      })
+      .finally(() => {
+        setIsResolvingMachine(false);
+      });
   };
 
   const handleResetScan = () => {
     setCameraError(null);
     setScannedData(null);
+    setQrResolution(null);
+    setIsResolvingMachine(false);
     setIsCameraActive(true);
+  };
+
+  const handleOpenChecklistForMachine = (machine: Machine) => {
+    Alert.alert(
+      `Pauta: ${machine.categoria.nombre}`,
+      `Equipo identificado: ${machine.nombre} (${machine.codigo_interno})\nCategoría: ${machine.categoria.nombre}\nID: ${machine.id}`,
+    );
   };
 
   const isPermissionBlocked =
@@ -515,25 +559,112 @@ export default function ScanScreen() {
               accessibilityLiveRegion="polite"
               className="mt-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm"
             >
-              <View className="flex-row items-start gap-3">
-                <View
-                  accessible={false}
-                  importantForAccessibility="no-hide-descendants"
-                  className="mt-0.5 h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100"
-                >
-                  <CheckCircle2 size={20} color="#0f172a" strokeWidth={2} />
+              {isResolvingMachine ? (
+                <View className="flex-row items-center gap-3 py-2">
+                  <ActivityIndicator size="small" color="#2563eb" />
+                  <View className="flex-1">
+                    <Text className="text-sm font-bold text-slate-900">
+                      Identificando equipo...
+                    </Text>
+                    <Text className="mt-0.5 text-xs text-slate-500">
+                      Consultando inventario de máquinas por UUID
+                    </Text>
+                  </View>
                 </View>
+              ) : qrResolution?.estado_resolucion === 'found' && qrResolution.maquina ? (
+                <View className="flex-col gap-3">
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center gap-2">
+                      <CheckCircle2 size={18} color="#059669" strokeWidth={2.2} />
+                      <Text className="text-sm font-bold text-slate-900">Equipo identificado</Text>
+                    </View>
 
-                <View className="min-w-0 flex-1">
-                  <Text className="text-sm font-bold text-slate-900">Código QR identificado</Text>
-                  <Text
-                    selectable
-                    className="mt-1 rounded-lg bg-slate-50 px-2.5 py-1.5 font-mono text-xs text-slate-700"
+                    {qrResolution.desde_cache ? (
+                      <View className="flex-row items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5">
+                        <WifiOff size={11} color="#d97706" strokeWidth={2.2} />
+                        <Text className="text-[10px] font-semibold text-amber-700">
+                          Caché local
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  <MachineCard
+                    machine={qrResolution.maquina}
+                    onPress={handleOpenChecklistForMachine}
+                  />
+
+                  <Pressable
+                    onPress={() => {
+                      if (qrResolution.maquina) {
+                        handleOpenChecklistForMachine(qrResolution.maquina);
+                      }
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Iniciar pauta de mantención para ${qrResolution.maquina.nombre}`}
+                    className="min-h-[46px] flex-row items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 active:bg-blue-700"
+                    style={{ cursor: 'pointer' }}
                   >
-                    {scannedData}
-                  </Text>
+                    <ClipboardList size={17} color="#ffffff" strokeWidth={2.2} />
+                    <Text className="text-xs font-bold text-white">
+                      {`Abrir pauta: ${qrResolution.maquina.categoria.nombre}`}
+                    </Text>
+                  </Pressable>
                 </View>
-              </View>
+              ) : qrResolution?.estado_resolucion === 'not_found' ? (
+                <View className="flex-row items-start gap-3">
+                  <View
+                    accessible={false}
+                    importantForAccessibility="no-hide-descendants"
+                    className="mt-0.5 h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50"
+                  >
+                    <AlertTriangle size={20} color="#d97706" strokeWidth={2} />
+                  </View>
+
+                  <View className="min-w-0 flex-1">
+                    <Text className="text-sm font-bold text-slate-900">
+                      Equipo no encontrado en el inventario
+                    </Text>
+                    <Text className="mt-0.5 text-xs leading-relaxed text-slate-500">
+                      {qrResolution.desde_cache
+                        ? 'No se encontró este UUID en la memoria local del dispositivo. Conéctate a internet para sincronizar equipos nuevos.'
+                        : 'El UUID escaneado no corresponde a ninguna máquina activa registrada.'}
+                    </Text>
+                    <Text
+                      selectable
+                      className="mt-2 rounded-lg bg-slate-50 px-2.5 py-1.5 font-mono text-[11px] text-slate-600"
+                    >
+                      {qrResolution.uuid_detectado ?? scannedData}
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <View className="flex-row items-start gap-3">
+                  <View
+                    accessible={false}
+                    importantForAccessibility="no-hide-descendants"
+                    className="mt-0.5 h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50"
+                  >
+                    <AlertCircle size={20} color="#dc2626" strokeWidth={2} />
+                  </View>
+
+                  <View className="min-w-0 flex-1">
+                    <Text className="text-sm font-bold text-slate-900">
+                      Código QR no reconocido
+                    </Text>
+                    <Text className="mt-0.5 text-xs leading-relaxed text-slate-500">
+                      El código escaneado no contiene un UUID válido de máquina de Bowling Service.
+                    </Text>
+                    <Text
+                      selectable
+                      numberOfLines={2}
+                      className="mt-2 rounded-lg bg-slate-50 px-2.5 py-1.5 font-mono text-[11px] text-slate-600"
+                    >
+                      {scannedData}
+                    </Text>
+                  </View>
+                </View>
+              )}
 
               <Pressable
                 onPress={handleResetScan}

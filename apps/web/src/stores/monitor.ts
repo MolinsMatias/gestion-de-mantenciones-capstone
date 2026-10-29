@@ -22,6 +22,12 @@ export const useMonitorStore = defineStore('monitor', () => {
   const fechaChile = computed(() => indicadores.value?.fecha_chile ?? null)
   const localesActivos = computed(() => locales.value.filter(l => l.activo === true).length)
 
+
+  const totalLocales = computed(() => locales.value.length)
+  const totalMaquinasActivas = computed(() =>
+    maquinas.value.filter(maquina => maquina.activo === true).length
+  )
+
   const resumenLocales = computed<ResumenLocal[]>(() => {
     const conteos = new Map<string, { total: number; activas: number }>()
     for (const maquina of maquinas.value) {
@@ -82,7 +88,7 @@ export const useMonitorStore = defineStore('monitor', () => {
 
   return {
     cargando, error, ultimaActualizacion, maquinasOperativas,
-    inspeccionesHoy, fechaChile, localesActivos, resumenLocales, cargar, limpiar
+    inspeccionesHoy, fechaChile, localesActivos, resumenLocales, cargar, limpiar, totalLocales, totalMaquinasActivas
   }
 
 

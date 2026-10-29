@@ -8,4 +8,6 @@ export interface Local {
   activo: boolean;
   total_maquinas: number;
   maquinas_operativas: number;
+  maquinas_con_observaciones: number;
+  maquinas_fuera_de_servicio: number;
 }

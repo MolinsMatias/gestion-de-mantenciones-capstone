@@ -13,8 +13,8 @@ import type {
 
 export const MACHINES_PAGE_SIZE = 15;
 
-const MACHINES_CACHE_KEY = '@bowling_services/machines_cache_v2';
-const CATEGORIES_CACHE_KEY = '@bowling_services/machine_categories_cache_v2';
+const MACHINES_CACHE_KEY = '@bowling_services/machines_cache';
+const CATEGORIES_CACHE_KEY = '@bowling_services/machine_categories_cache';
 const MACHINE_IMAGES_BUCKET = 'img_maquinas';
 const SIGNED_URL_EXPIRY_SECONDS = 3600;
 const SIGNED_URL_CACHE_TTL_MS = 45 * 60 * 1000;

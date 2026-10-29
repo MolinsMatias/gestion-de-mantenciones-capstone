@@ -24,10 +24,11 @@ export default function Root({ children }: PropsWithChildren) {
 
         {/* Metadatos PWA para Android / Chrome */}
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="theme-color" content="#07162c" />
+        <meta name="theme-color" content="#07172C" />
 
         {/* Metadatos PWA para iOS Safari (Añadir a pantalla de inicio) */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="#07172C" />
         <meta name="apple-mobile-web-app-title" content="BowlingServices" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />

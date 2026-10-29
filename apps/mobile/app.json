@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "mobile",
     "userInterfaceStyle": "light",
-    "backgroundColor": "#f8fafc",
+    "backgroundColor": "#07172C",
     "ios": {
       "icon": "./assets/images/icon.png"
     },
@@ -26,8 +26,9 @@
       "name": "Bowling Services",
       "shortName": "Bowling",
       "description": "Gestión técnica de mantenciones de maquinaria para Bowling Services",
-      "themeColor": "#07162c",
-      "backgroundColor": "#07162c",
+      "themeColor": "#07172C",
+      "backgroundColor": "#07172C",
+      "barStyle": "black-translucent",
       "display": "standalone",
       "orientation": "portrait",
       "lang": "es"

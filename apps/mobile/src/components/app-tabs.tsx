@@ -63,8 +63,11 @@ export function AppTabs({ state, navigation }: BottomTabBarProps) {
   };
 
   return (
-    // La zona transparente sobre la barra aloja la parte elevada del botón central sin crear un hueco negro.
-    <View pointerEvents="box-none" style={{ overflow: 'visible' }}>
+    // La zona transparente sobre la barra aloja la parte elevada del botón central sin crear un hueco oscuro en las esquinas redondeadas.
+    <View
+      pointerEvents="box-none"
+      style={{ position: 'absolute', left: 0, right: 0, bottom: 0, overflow: 'visible' }}
+    >
       <View
         className="rounded-t-[28px] bg-white"
         style={[{ paddingBottom: Math.max(insets.bottom, 8) }, shadowBar]}

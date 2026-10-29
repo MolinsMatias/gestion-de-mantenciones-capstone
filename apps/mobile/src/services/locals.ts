@@ -4,7 +4,7 @@ import { getSupabase } from '@/services/supabase';
 import type { Local } from '@/types/local';
 import type { MachineStatus } from '@/types/machine';
 
-const LOCALS_CACHE_KEY = '@bowling_services/locals_cache_v2';
+const LOCALS_CACHE_KEY = '@bowling_services/locals_cache';
 const ACTIVE_LOCAL_ID_KEY = '@bowling_services/active_local_id';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -51,6 +51,17 @@ function parseCommune(raw: unknown): ParsedCommuneInfo {
 interface LocalMachineStats {
   totalMachines: number;
   operationalMachines: number;
+  machinesWithObservations: number;
+  outOfServiceMachines: number;
+}
+
+function createEmptyStats(): LocalMachineStats {
+  return {
+    totalMachines: 0,
+    operationalMachines: 0,
+    machinesWithObservations: 0,
+    outOfServiceMachines: 0,
+  };
 }
 
 async function fetchMachineStatsByLocal(
@@ -107,12 +118,16 @@ async function fetchMachineStatsByLocal(
     }
 
     for (const [machineId, localId] of machineToLocal.entries()) {
-      const current = statsMap.get(localId) ?? { totalMachines: 0, operationalMachines: 0 };
+      const current = statsMap.get(localId) ?? createEmptyStats();
       current.totalMachines += 1;
 
       const status = latestStatusByMachine.get(machineId) ?? 'operativa';
       if (status === 'operativa') {
         current.operationalMachines += 1;
+      } else if (status === 'operativa_con_observaciones') {
+        current.machinesWithObservations += 1;
+      } else if (status === 'fuera_de_servicio') {
+        current.outOfServiceMachines += 1;
       }
 
       statsMap.set(localId, current);
@@ -160,7 +175,7 @@ export async function fetchLocals(): Promise<Local[]> {
 
       const id = row.id;
       const { communeName, regionName } = parseCommune(row.comuna);
-      const stats = statsByLocal.get(id) ?? { totalMachines: 0, operationalMachines: 0 };
+      const stats = statsByLocal.get(id) ?? createEmptyStats();
 
       locals.push({
         id,
@@ -175,6 +190,8 @@ export async function fetchLocals(): Promise<Local[]> {
         activo: Boolean(row.activo),
         total_maquinas: stats.totalMachines,
         maquinas_operativas: stats.operationalMachines,
+        maquinas_con_observaciones: stats.machinesWithObservations,
+        maquinas_fuera_de_servicio: stats.outOfServiceMachines,
       });
     }
 
@@ -202,7 +219,11 @@ export async function getCachedLocals(): Promise<Local[]> {
       const parsed: unknown = JSON.parse(cached);
       if (Array.isArray(parsed)) {
         return parsed.filter(
-          (item): item is Local => isRecord(item) && typeof item.nombre === 'string',
+          (item): item is Local =>
+            isRecord(item) &&
+            typeof item.nombre === 'string' &&
+            typeof item.maquinas_con_observaciones === 'number' &&
+            typeof item.maquinas_fuera_de_servicio === 'number',
         );
       }
     }

@@ -2,9 +2,9 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
+  AlertCircle,
+  AlertTriangle,
   Check,
-  ClipboardList,
-  Clock,
   MapPin,
   Plus,
   SlidersHorizontal,
@@ -25,7 +25,7 @@ const bowlingBg = require('@/assets/images/bowling-bg.jpg');
 
 interface BitacoraItem {
   id: string;
-  pista: string;
+  codigo_maquina: string;
   titulo: string;
   descripcion: string;
   hora: string;
@@ -37,9 +37,9 @@ interface BitacoraItem {
 const BITACORA_ITEMS: BitacoraItem[] = [
   {
     id: '1',
-    pista: 'Pista 4',
-    titulo: 'Pista 4 - Calibración switch detector bolos',
-    descripcion: 'Ajuste de sensibilidad en celda fotoeléctrica y limpieza de lente',
+    codigo_maquina: 'SZM-018',
+    titulo: 'SZM-018 - Pinball Piratas del Caribe',
+    descripcion: 'Ajuste de sensibilidad en optos de rampa central y limpieza de playfield',
     hora: '14:15',
     insumos: 'Ninguno',
     tiempo: '25 min',
@@ -47,19 +47,19 @@ const BITACORA_ITEMS: BitacoraItem[] = [
   },
   {
     id: '2',
-    pista: 'Pista 2',
-    titulo: 'Pista 2 - Reemplazo faja pinsetter',
-    descripcion: 'Cambio preventivo de correa transmisora y engrase de rodamientos',
+    codigo_maquina: 'SZM-003',
+    titulo: 'SZM-003 - Scat Cats P2',
+    descripcion: 'Reemplazo de rodillo dispensador de tickets y prueba de conteo óptico',
     hora: '11:20',
-    insumos: 'Faja mod. GS-X #441',
+    insumos: 'Rodillo dispensador #TK-204',
     tiempo: '40 min',
     tipo: 'reemplazo',
   },
   {
     id: '3',
-    pista: 'Pista 7',
-    titulo: 'Pista 7 - Ajuste de tensión cadena elevador',
-    descripcion: 'Revisión de holgura en elevador de bolas y prueba de retorno',
+    codigo_maquina: 'SZM-008',
+    titulo: 'SZM-008 - Fast And Furious Drift 1',
+    descripcion: 'Calibración de potenciómetro de volante y revisión de pedalera',
     hora: '09:45',
     insumos: 'Ninguno',
     tiempo: '20 min',
@@ -197,7 +197,7 @@ export default function HomeScreen() {
                 Registrar intervención
               </Text>
               <Text className="mt-1 text-xs text-blue-100">
-                Anota ajustes de pinsetter, cambios o manteción en segundos
+                Registra inspecciones, mantenciones preventivas o reparaciones de máquinas
               </Text>
 
               <View
@@ -225,33 +225,9 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Métricas del turno: grilla de 3 columnas */}
+          {/* Estado de máquinas del local activo: grilla de 3 columnas */}
           <View className="flex-row gap-2.5">
-            {/* Columna 1: Intervenciones */}
-            <View
-              className="relative min-h-[100px] flex-1 justify-between rounded-2xl border border-blue-100 bg-white p-3 shadow-sm"
-              style={{ borderRadius: 16 }}
-            >
-              <View className="absolute right-2.5 top-2.5" pointerEvents="none">
-                <ClipboardList size={14} color="#2563eb" strokeWidth={2} />
-              </View>
-              <View className="pr-4">
-                <Text
-                  className="text-[10px] font-bold leading-tight text-blue-600"
-                  style={{ letterSpacing: 0.3 }}
-                >
-                  {'INTER\u200BVENCIONES'}
-                </Text>
-              </View>
-              <View className="mt-2">
-                <Text className="text-2xl font-extrabold leading-none text-slate-900">3</Text>
-                <Text className="mt-1 text-[10px] font-semibold text-blue-600">
-                  Registradas hoy
-                </Text>
-              </View>
-            </View>
-
-            {/* Columna 2: Revisadas */}
+            {/* Columna 1: Operativas */}
             <View
               className="relative min-h-[100px] flex-1 justify-between rounded-2xl border border-emerald-100 bg-white p-3 shadow-sm"
               style={{ borderRadius: 16 }}
@@ -264,40 +240,74 @@ export default function HomeScreen() {
                   className="text-[10px] font-bold leading-tight text-emerald-600"
                   style={{ letterSpacing: 0.3 }}
                 >
-                  REVISADAS
+                  OPERATIVAS
                 </Text>
               </View>
               <View className="mt-2">
                 <View className="flex-row items-baseline">
-                  <Text className="text-2xl font-extrabold leading-none text-slate-900">10</Text>
-                  <Text className="ml-1 text-xs font-semibold text-slate-400">/ 14</Text>
+                  <Text className="text-2xl font-extrabold leading-none text-slate-900">
+                    {activeLocal ? activeLocal.maquinas_operativas : '—'}
+                  </Text>
+                  {activeLocal ? (
+                    <Text className="ml-1 text-xs font-semibold text-slate-400">
+                      / {activeLocal.total_maquinas}
+                    </Text>
+                  ) : null}
                 </View>
                 <Text className="mt-1 text-[10px] font-semibold text-emerald-600">
-                  Pistas auditadas
+                  Sin observaciones
                 </Text>
               </View>
             </View>
 
-            {/* Columna 3: Turno */}
+            {/* Columna 2: Con detalles (Operativa con observaciones) */}
             <View
-              className="relative min-h-[100px] flex-1 justify-between rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm"
+              className="relative min-h-[100px] flex-1 justify-between rounded-2xl border border-amber-100 bg-white p-3 shadow-sm"
               style={{ borderRadius: 16 }}
             >
               <View className="absolute right-2.5 top-2.5" pointerEvents="none">
-                <Clock size={14} color="#64748b" strokeWidth={2} />
+                <AlertTriangle size={14} color="#d97706" strokeWidth={2.2} />
               </View>
               <View className="pr-4">
                 <Text
-                  className="text-[10px] font-bold leading-tight text-slate-600"
+                  className="text-[10px] font-bold leading-tight text-amber-600"
                   style={{ letterSpacing: 0.3 }}
                 >
-                  TURNO
+                  CON DETALLES
                 </Text>
               </View>
               <View className="mt-2">
-                <Text className="text-2xl font-extrabold leading-none text-slate-900">5.2h</Text>
-                <Text className="mt-1 text-[10px] font-medium text-slate-500">
-                  En terreno activo
+                <Text className="text-2xl font-extrabold leading-none text-slate-900">
+                  {activeLocal ? activeLocal.maquinas_con_observaciones : '—'}
+                </Text>
+                <Text className="mt-1 text-[10px] font-semibold text-amber-600">
+                  Con observaciones
+                </Text>
+              </View>
+            </View>
+
+            {/* Columna 3: Fuera de servicio */}
+            <View
+              className="relative min-h-[100px] flex-1 justify-between rounded-2xl border border-red-100 bg-white p-3 shadow-sm"
+              style={{ borderRadius: 16 }}
+            >
+              <View className="absolute right-2.5 top-2.5" pointerEvents="none">
+                <AlertCircle size={14} color="#dc2626" strokeWidth={2.2} />
+              </View>
+              <View className="pr-4">
+                <Text
+                  className="text-[10px] font-bold leading-tight text-red-600"
+                  style={{ letterSpacing: 0.3 }}
+                >
+                  {'FUERA\u200B SERVICIO'}
+                </Text>
+              </View>
+              <View className="mt-2">
+                <Text className="text-2xl font-extrabold leading-none text-slate-900">
+                  {activeLocal ? activeLocal.maquinas_fuera_de_servicio : '—'}
+                </Text>
+                <Text className="mt-1 text-[10px] font-semibold text-red-600">
+                  Inoperativas hoy
                 </Text>
               </View>
             </View>

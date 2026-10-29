@@ -20,6 +20,11 @@ const router = createRouter({
           name: 'monitor',
           component: () => import('../views/MonitorView.vue'),
         },
+        {
+          path: 'maquinas',
+          name: 'maquinas',
+          component: () => import('../views/MaquinaView.vue'),
+        },
       ],
     },
   ],

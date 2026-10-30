@@ -1,13 +1,24 @@
-import { Check, ChevronRight, MapPin, Settings, Wrench, Zap } from 'lucide-react-native';
+import {
+  AlertTriangle,
+  XCircle,
+  Check,
+  ChevronRight,
+  MapPin,
+  Settings,
+  Wrench,
+  Zap,
+} from 'lucide-react-native';
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { getMachineStatusConfig } from '@/components/machines/machine-card';
 import { Skeleton } from '@/components/shared/skeleton';
 
 import type { MaintenanceItem } from '@/types/maintenance';
 
 export type MaintenanceCardProps = {
   onPress?: (item: MaintenanceItem) => void;
+  showStatusLabel?: boolean;
 } & ({ isLoading: true; item?: MaintenanceItem } | { isLoading?: false; item: MaintenanceItem });
 
 export function MaintenanceCardSkeleton() {
@@ -23,6 +34,7 @@ export function MaintenanceCardSkeleton() {
             </View>
             <View className="h-3 w-3/5 rounded bg-slate-200" />
             <View className="h-3 w-4/5 rounded bg-slate-200" />
+            <View className="mt-1 h-3 w-3/5 rounded bg-slate-200" />
           </View>
           <View className="h-4 w-4 rounded bg-slate-200" />
         </View>
@@ -89,18 +101,41 @@ function MaintenanceLeadingIcon({ type }: { type: MaintenanceItem['tipo_icono'] 
  */
 export function MaintenanceCard(props: MaintenanceCardProps) {
   if (props.isLoading) return <MaintenanceCardSkeleton />;
-  const { item, onPress } = props;
+  const { item, onPress, showStatusLabel = false } = props;
+  const status = item.estado_equipo_final ? getMachineStatusConfig(item.estado_equipo_final) : null;
+  const StatusIcon =
+    item.estado_equipo_final === 'fuera_de_servicio'
+      ? XCircle
+      : item.estado_equipo_final === 'operativa_con_observaciones'
+        ? AlertTriangle
+        : Check;
+  const statusColor =
+    item.estado_equipo_final === 'fuera_de_servicio'
+      ? '#dc2626'
+      : item.estado_equipo_final === 'operativa_con_observaciones'
+        ? '#b45309'
+        : '#047857';
   return (
     <Pressable
       onPress={() => onPress?.(item)}
       accessibilityRole="button"
-      accessibilityLabel={`${item.titulo}, ${item.categoria}, ${item.ubicacion}, programado para ${item.etiqueta_tiempo}`}
+      accessibilityLabel={`${item.titulo}, ${item.categoria}, ${item.ubicacion}, registrado el ${item.etiqueta_tiempo}${status ? `, estado final: ${status.label}` : ''}`}
       accessibilityHint="Toca para ver los detalles de esta mantención"
       className="mb-3 flex-row items-center rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm active:bg-slate-50/90"
       style={onPress ? { cursor: 'pointer' } : undefined}
     >
       {/* Icono circular a la izquierda */}
-      <MaintenanceLeadingIcon type={item.tipo_icono} />
+      {status ? (
+        <View
+          accessible={false}
+          importantForAccessibility="no-hide-descendants"
+          className="h-12 w-12 shrink-0 items-center justify-center rounded-full bg-slate-50"
+        >
+          <StatusIcon size={23} color={statusColor} strokeWidth={2} />
+        </View>
+      ) : (
+        <MaintenanceLeadingIcon type={item.tipo_icono} />
+      )}
 
       {/* Contenido central: Título + hora en primera fila, categoría y ubicación */}
       <View className="min-w-0 flex-1 ml-3.5 mr-2">
@@ -135,6 +170,14 @@ export function MaintenanceCard(props: MaintenanceCardProps) {
             {item.ubicacion}
           </Text>
         </View>
+        {showStatusLabel && status ? (
+          <View className="mt-2 flex-row items-center gap-1.5">
+            <View className={`h-2 w-2 rounded-full ${status.dotClassName}`} />
+            <Text className="flex-shrink text-xs font-semibold" style={{ color: statusColor }}>
+              {status.label}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       {/* Indicador de navegación lateral */}

@@ -248,7 +248,7 @@ export default function HistoryScreen() {
           onScroll={handleScroll}
           scrollEventThrottle={16}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
+          keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'}
           initialNumToRender={8}
           maxToRenderPerBatch={8}
           windowSize={5}

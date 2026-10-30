@@ -58,9 +58,12 @@ html, body, #root, [dir="auto"], input, textarea, button, select {
   touch-action: manipulation;
 }
 
-/* El documento aporta un fondo de respaldo; cada pantalla pinta sus propias áreas. */
+/* El documento aporta un fondo de respaldo; cada pantalla pinta sus propias áreas.
+   Usamos 100dvh sin position:fixed en body para que Chrome Android (resizes-content)
+   y Safari iOS redimensionen el viewport limpiamente sin perder el foco del teclado IME. */
 html, body {
   height: 100%;
+  height: 100dvh;
   width: 100%;
   margin: 0;
   padding: 0;
@@ -70,15 +73,10 @@ html, body {
   overscroll-behavior-x: none;
 }
 
-/* Fijar el body evita que el navegador desplace toda la página al abrir el teclado. */
-body {
-  position: fixed;
-  inset: 0;
-}
-
 #root {
   /* Sigue el viewport disponible; el scroll y los insets viven dentro de Expo. */
   height: 100%;
+  height: 100dvh;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -92,9 +90,11 @@ body {
   -webkit-touch-callout: none;
 }
 
-input, textarea {
-  user-select: auto;
-  -webkit-user-select: auto;
+input, textarea, [contenteditable="true"] {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -webkit-touch-callout: default !important;
+  touch-action: auto;
 }
 
 /* Prevenir el auto-zoom de iOS Safari / WebKit al hacer foco en inputs (sucede cuando font-size < 16px) */

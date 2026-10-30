@@ -301,7 +301,7 @@ export default function MachinesScreen() {
           className="flex-1"
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
+          keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'}
           initialNumToRender={8}
           maxToRenderPerBatch={8}
           windowSize={5}

@@ -23,3 +23,11 @@ export function useKeyboardOffset(): number {
 
   return keyboardHeight;
 }
+
+/**
+ * Returns true while the software keyboard is open on native Android/iOS.
+ */
+export function useIsKeyboardVisible(): boolean {
+  const keyboardHeight = useKeyboardOffset();
+  return keyboardHeight > 0;
+}

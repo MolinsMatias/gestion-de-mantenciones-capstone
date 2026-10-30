@@ -39,9 +39,6 @@ export function LocalBottomSheet({
 }: LocalBottomSheetProps) {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-
-  const isWebSearchActive = Platform.OS === 'web' && visible && isSearchFocused;
 
   const filteredLocals = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -56,7 +53,6 @@ export function LocalBottomSheet({
   }, [locals, searchQuery]);
 
   const handleClose = () => {
-    setIsSearchFocused(false);
     onClose();
   };
 
@@ -94,8 +90,6 @@ export function LocalBottomSheet({
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
-            onFocus={() => setIsSearchFocused(true)}
-            onBlur={() => setIsSearchFocused(false)}
             placeholder="Buscar local por nombre, dirección o comuna..."
             placeholderTextColor="#94a3b8"
             accessibilityLabel="Buscar local por nombre, dirección o comuna"
@@ -162,7 +156,7 @@ export function LocalBottomSheet({
         className="px-5"
         style={{ flex: 1 }}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
+        keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'}
         contentContainerStyle={{
           paddingBottom: Math.max(insets.bottom, 16) + 24,
         }}
@@ -195,7 +189,6 @@ export function LocalBottomSheet({
               <Pressable
                 key={loc.id}
                 onPress={() => {
-                  setIsSearchFocused(false);
                   onSelect(loc);
                   onClose();
                 }}
@@ -275,21 +268,21 @@ export function LocalBottomSheet({
       statusBarTranslucent
     >
       {Platform.OS === 'web' ? (
-        <View
+        <KeyboardAvoidingContainer
           className="flex-1 bg-black/60"
           style={{
-            justifyContent: isWebSearchActive ? 'flex-start' : 'flex-end',
-            paddingTop: isWebSearchActive ? Math.max(insets.top, 12) : 0,
+            justifyContent: 'flex-end',
+            paddingTop: Math.max(insets.top, 12),
           }}
         >
           <Pressable onPress={handleClose} accessible={false} style={StyleSheet.absoluteFill} />
           <View
             className="w-full max-w-xl self-center overflow-hidden rounded-t-[28px] border-t border-slate-200 bg-white shadow-2xl"
-            style={isWebSearchActive ? { flex: 1 } : { height: '72%' }}
+            style={{ height: '78%', maxHeight: '100%' }}
           >
             {renderSheetContent()}
           </View>
-        </View>
+        </KeyboardAvoidingContainer>
       ) : (
         <Pressable onPress={handleClose} className="flex-1 bg-black/60">
           <KeyboardAvoidingContainer style={{ flex: 1, justifyContent: 'flex-end' }}>

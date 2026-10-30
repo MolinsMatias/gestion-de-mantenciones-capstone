@@ -5,6 +5,7 @@ import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BrandColors } from '@/constants/theme';
+import { useIsKeyboardVisible } from '@/hooks/use-keyboard-offset';
 
 interface TabItem {
   label: string;
@@ -50,6 +51,11 @@ const shadowPrimary = {
  */
 export function AppTabs({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const isKeyboardVisible = useIsKeyboardVisible();
+
+  if (isKeyboardVisible) {
+    return null;
+  }
 
   const primaryRoute = state.routes.find((route) => TAB_ITEMS[route.name]?.primary);
   const primaryIndex = primaryRoute ? state.routes.indexOf(primaryRoute) : -1;

@@ -17,7 +17,6 @@ import {
   Easing,
   useWindowDimensions,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -28,6 +27,10 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MachineOverview } from '@/components/maintenance/machine-overview';
+import {
+  MaintenanceFeedbackDialog,
+  type MaintenanceFeedback,
+} from '@/components/maintenance/maintenance-feedback-dialog';
 import { MaintenanceField } from '@/components/maintenance/maintenance-field';
 import { AppHeader } from '@/components/shared/app-header';
 import { KeyboardScrollView } from '@/components/shared/keyboard-scroll-view';
@@ -35,7 +38,6 @@ import { Skeleton } from '@/components/shared/skeleton';
 import { useNetworkStatus } from '@/hooks/use-network-status';
 import { useAuth } from '@/providers/auth-provider';
 import {
-  clearMaintenanceDraft,
   fetchActiveChecklistByCategory,
   getMaintenanceDraft,
   saveMaintenanceDraft,
@@ -165,11 +167,15 @@ export default function MaintenanceScreen() {
   const [generalObservations, setGeneralObservations] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<MaintenanceFeedback | null>(null);
+  const submitLockRef = useRef(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTimerStopped = feedback?.kind === 'sent';
 
   // Timer
   useEffect(() => {
+    if (isTimerStopped) return;
     const startMs = new Date(startedAt).getTime();
     const interval = setInterval(() => {
       const nowMs = Date.now();
@@ -177,7 +183,7 @@ export default function MaintenanceScreen() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [startedAt]);
+  }, [startedAt, isTimerStopped]);
 
   // Initial load
   useEffect(() => {
@@ -388,48 +394,78 @@ export default function MaintenanceScreen() {
     return errors;
   }, [checklist, answers, performedWork, requiresParts, partsDetail, finalStatus, pendingTasks]);
 
+  const handleFeedbackConfirm = () => {
+    if (feedback && feedback.kind !== 'error') {
+      router.replace('/(app)');
+      return;
+    }
+    setFeedback(null);
+  };
+
   const handleSubmit = async () => {
+    if (submitLockRef.current) return;
     if (validationErrors.length > 0) {
       setShowValidation(true);
-      Alert.alert(
-        'Faltan datos obligatorios',
-        validationErrors.slice(0, 3).join('\n') +
+      setFeedback({
+        kind: 'error',
+        title: 'Faltan datos obligatorios',
+        message:
+          validationErrors.slice(0, 3).join('\n') +
           (validationErrors.length > 3
             ? `\n... y ${validationErrors.length - 3} detalles más.`
             : ''),
-      );
+      });
       return;
     }
-
     if (!currentDraft) return;
-
     const tecnicoId = session?.user?.id;
     if (!tecnicoId) {
-      Alert.alert('Sesión no válida', 'Inicia sesión nuevamente para enviar la mantención.');
+      setFeedback({
+        kind: 'error',
+        title: 'Sesión no válida',
+        message: 'Inicia sesión nuevamente para enviar la mantención.',
+      });
       return;
     }
 
+    submitLockRef.current = true;
     setIsSubmitting(true);
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
+    }
     try {
+      await saveMaintenanceDraft(currentDraft);
       const result = await submitMaintenanceRecord(currentDraft, tecnicoId, isOnline);
       if (result.exito) {
-        await clearMaintenanceDraft(currentDraft.maquina_id);
-        Alert.alert('Mantención guardada', result.mensaje, [
-          {
-            text: 'Aceptar',
-            onPress: () => {
-              router.replace('/(app)/scan');
-            },
-          },
-        ]);
+        setHasUnsavedChanges(false);
+        setFeedback({
+          kind: result.guardado_offline ? 'queued' : 'sent',
+          title: result.guardado_offline
+            ? 'Guardada en el dispositivo'
+            : 'Mantención enviada con éxito',
+          message: result.guardado_offline
+            ? `El envío al servidor está pendiente. ${result.mensaje}`
+            : result.mensaje,
+        });
       } else {
-        Alert.alert('Error al enviar', result.mensaje);
+        submitLockRef.current = false;
+        setFeedback({
+          kind: 'error',
+          title: 'No se pudo enviar la mantención',
+          message: result.mensaje,
+        });
       }
-    } catch (err) {
-      Alert.alert(
-        'Error inesperado',
-        err instanceof Error ? err.message : 'No se pudo completar la operación.',
-      );
+    } catch (error) {
+      submitLockRef.current = false;
+      setFeedback({
+        kind: 'error',
+        title: 'No se pudo completar el envío',
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Ocurrió un error inesperado. Intenta nuevamente.',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -1022,6 +1058,7 @@ export default function MaintenanceScreen() {
           </View>
         </View>
       </View>
+      <MaintenanceFeedbackDialog feedback={feedback} onConfirm={handleFeedbackConfirm} />
     </KeyboardAvoidingView>
   );
 }

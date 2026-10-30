@@ -324,15 +324,15 @@ export async function submitMaintenanceRecord(
       mensaje: 'Mantención registrada y enviada exitosamente.',
     };
   } catch (err) {
-    console.warn('Error submitting to Supabase, saving offline fallback:', err);
+    const errorMessage =
+      err instanceof Error ? err.message : 'No se pudo confirmar el envío al servidor.';
     await queueMaintenanceOffline(draft);
     await clearMaintenanceDraft(draft.maquina_id);
     return {
       exito: true,
       mantencion_id: draft.mantencion_id,
       guardado_offline: true,
-      mensaje:
-        'Hubo un problema de conexión con el servidor. La intervención quedó guardada localmente y se enviará al reintentar.',
+      mensaje: `No se pudo confirmar el envío. La intervención quedó guardada localmente para reintentar. Detalle: ${errorMessage}`,
     };
   }
 }

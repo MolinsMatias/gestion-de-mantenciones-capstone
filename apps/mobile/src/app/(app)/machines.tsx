@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { AlertCircle, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import {
@@ -48,6 +48,7 @@ export default function MachinesScreen() {
     isLoading,
     isLoadingMore,
     isRefreshing,
+    isFromCache,
     error,
     loadMore,
     refresh,
@@ -57,6 +58,12 @@ export default function MachinesScreen() {
     searchQuery,
     statusFilter,
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
+    }, [refresh]),
+  );
 
   const { containerRef, pullDistance, isThresholdReached, handleScroll } = useWebPullToRefresh({
     isRefreshing,
@@ -315,6 +322,18 @@ export default function MachinesScreen() {
             paddingTop: 12,
             paddingBottom: Math.max(insets.bottom, 16) + 92,
           }}
+          ListHeaderComponent={
+            error && machines.length > 0 ? (
+              <View className="w-full max-w-xl self-center px-4 pb-3">
+                <Text
+                  accessibilityRole="alert"
+                  className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900"
+                >
+                  {`${error}${isFromCache ? ' Se muestran las máquinas guardadas en caché.' : ''}`}
+                </Text>
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             <View className="w-full max-w-xl self-center px-4">
               {isLoading ? (

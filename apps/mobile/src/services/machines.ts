@@ -442,6 +442,7 @@ export async function fetchMachinesPage(
       items,
       totalCount,
       hasMore,
+      isFromCache: false,
     };
   } catch (err) {
     const cached = await getCachedMachines(params?.localId);
@@ -457,6 +458,7 @@ export async function fetchMachinesPage(
         items: paged,
         totalCount: filtered.length,
         hasMore: offset + paged.length < filtered.length,
+        isFromCache: true,
       };
     }
 

@@ -43,6 +43,7 @@ export interface PaginatedMachinesResult {
   items: Machine[];
   totalCount: number;
   hasMore: boolean;
+  isFromCache?: boolean;
 }
 
 export type QrMachineResolutionStatus = 'found' | 'not_found' | 'invalid_qr';

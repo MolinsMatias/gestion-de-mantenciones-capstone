@@ -23,6 +23,7 @@ export interface UseMachinesResult {
   isLoading: boolean;
   isLoadingMore: boolean;
   isRefreshing: boolean;
+  isFromCache: boolean;
   error: string | null;
   loadMore: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -45,11 +46,13 @@ export function useMachines({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isFromCache, setIsFromCache] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState<string>(searchQuery.trim());
 
   const loadingMoreRef = useRef<boolean>(false);
   const requestIdRef = useRef<number>(0);
+  const isInitialMount = useRef<boolean>(true);
 
   // Debounce del texto de búsqueda para evitar disparar consultas en cada tecla
   useEffect(() => {
@@ -92,6 +95,11 @@ export function useMachines({
 
   // Carga de la primera página cuando cambian local, categoría, búsqueda o estado operativo
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
     let mounted = true;
     const currentRequestId = ++requestIdRef.current;
 
@@ -116,7 +124,13 @@ export function useMachines({
           setRawMachines(result.items);
           setServerTotalCount(result.totalCount);
           setHasMore(result.hasMore);
-          setError(null);
+          if (result.isFromCache) {
+            setIsFromCache(true);
+            setError('No se pudo conectar con el servidor.');
+          } else {
+            setIsFromCache(false);
+            setError(null);
+          }
         }
       } catch (err) {
         if (mounted && currentRequestId === requestIdRef.current) {
@@ -125,6 +139,7 @@ export function useMachines({
               ? err.message
               : 'No se pudo obtener el listado de máquinas desde el servidor.';
           setError(message);
+          setIsFromCache(false);
         }
       } finally {
         if (mounted && currentRequestId === requestIdRef.current) {
@@ -186,7 +201,11 @@ export function useMachines({
 
   const refresh = useCallback(async () => {
     const currentRequestId = ++requestIdRef.current;
-    setIsRefreshing(true);
+    if (rawMachines.length === 0) {
+      setIsLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
     setError(null);
 
     try {
@@ -209,6 +228,13 @@ export function useMachines({
         setRawMachines(result.items);
         setServerTotalCount(result.totalCount);
         setHasMore(result.hasMore);
+        if (result.isFromCache) {
+          setIsFromCache(true);
+          setError('No se pudo conectar con el servidor.');
+        } else {
+          setIsFromCache(false);
+          setError(null);
+        }
       }
     } catch (err) {
       if (currentRequestId === requestIdRef.current) {
@@ -217,6 +243,7 @@ export function useMachines({
             ? err.message
             : 'No se pudo obtener el listado de máquinas desde el servidor.';
         setError(message);
+        setIsFromCache(false);
       }
     } finally {
       if (currentRequestId === requestIdRef.current) {
@@ -224,7 +251,7 @@ export function useMachines({
         setIsLoading(false);
       }
     }
-  }, [debouncedSearch, localId, selectedCategoryId, statusFilter]);
+  }, [debouncedSearch, localId, rawMachines.length, selectedCategoryId, statusFilter]);
 
   const categories = useMemo(() => {
     return ['Todos', ...categoryList.map((cat) => cat.nombre)];
@@ -240,6 +267,7 @@ export function useMachines({
     isLoading,
     isLoadingMore,
     isRefreshing,
+    isFromCache,
     error,
     loadMore,
     refresh,

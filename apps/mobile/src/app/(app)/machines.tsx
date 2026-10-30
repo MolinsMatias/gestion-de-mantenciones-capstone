@@ -103,7 +103,7 @@ export default function MachinesScreen() {
       <AppHeader
         title="Máquinas"
         subtitle="Consulta y registra mantenciones"
-        showConnectivity={false}
+        showConnectivity={true}
       />
 
       {/* Zona superior fija: Buscador, Categorías y Contador/Filtro */}

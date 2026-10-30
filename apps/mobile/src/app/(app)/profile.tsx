@@ -45,7 +45,7 @@ export default function PerfilScreen() {
       <AppHeader
         title="Perfil"
         subtitle="Información de la cuenta y configuración de sesión"
-        showConnectivity={false}
+        showConnectivity={true}
       />
 
       <ScrollView

@@ -86,7 +86,7 @@ export default function HistoryScreen() {
       <AppHeader
         title="Historial"
         subtitle="Registro de intervenciones y tareas"
-        showConnectivity={false}
+        showConnectivity={true}
       />
 
       <ScrollView

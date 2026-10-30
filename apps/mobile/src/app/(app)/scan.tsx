@@ -294,7 +294,7 @@ export default function ScanScreen() {
       <AppHeader
         title="Escanear QR"
         subtitle="Apunta al código QR de la máquina para identificar el equipo"
-        showConnectivity={false}
+        showConnectivity={true}
       />
 
       <ScrollView

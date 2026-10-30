@@ -30,6 +30,7 @@ export interface AppHeaderProps {
    * Custom element rendered on the right side instead of the connectivity pill.
    */
   rightElement?: React.ReactNode;
+  leadingElement?: React.ReactNode;
   /**
    * Optional custom children to render below the title row inside the dark header container.
    */
@@ -51,6 +52,7 @@ export function AppHeader({
   showConnectivity = true,
   onPressConnectivity,
   rightElement,
+  leadingElement,
   children,
   className = '',
 }: AppHeaderProps) {
@@ -69,6 +71,7 @@ export function AppHeader({
       style={{ paddingTop: Math.max(insets.top + 10, 24) }}
     >
       <View className="w-full max-w-xl flex-row items-center justify-between self-center px-5">
+        {leadingElement ? <View className="mr-3">{leadingElement}</View> : null}
         <View className="flex-1 pr-3">
           <Text accessibilityRole="header" className="text-xl font-bold tracking-tight text-white">
             {resolvedTitle}

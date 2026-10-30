@@ -78,6 +78,14 @@ export default function RootLayout() {
         >
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(app)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="maintenance/[machineId]"
+            options={{
+              headerShown: false,
+              animation: 'slide_from_right',
+              contentStyle: { backgroundColor: '#f8fafc' },
+            }}
+          />
         </Stack>
       </AuthProvider>
     </ThemeProvider>

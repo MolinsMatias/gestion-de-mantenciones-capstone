@@ -5,7 +5,7 @@ import {
   type CameraMountError,
   type CameraType,
 } from 'expo-camera';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
   AlertCircle,
   AlertTriangle,
@@ -25,7 +25,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
-  Alert,
   Linking,
   Platform,
   Pressable,
@@ -55,6 +54,7 @@ const SCAN_FRAME_SIZE = 232;
 const LASER_MAX_TRANSLATE = SCAN_FRAME_SIZE - 12;
 
 export default function ScanScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
@@ -277,10 +277,10 @@ export default function ScanScreen() {
   };
 
   const handleOpenChecklistForMachine = (machine: Machine) => {
-    Alert.alert(
-      `Pauta: ${machine.categoria.nombre}`,
-      `Equipo identificado: ${machine.nombre} (${machine.codigo_interno})\nCategoría: ${machine.categoria.nombre}\nID: ${machine.id}`,
-    );
+    router.push({
+      pathname: '/maintenance/[machineId]',
+      params: { machineId: machine.id },
+    });
   };
 
   const isPermissionBlocked =

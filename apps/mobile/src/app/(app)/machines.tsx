@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { AlertCircle, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import {
@@ -31,6 +32,7 @@ const STATUS_FILTER_OPTIONS: { value: MachineStatusFilter; label: string }[] = [
 
 export default function MachinesScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
@@ -58,17 +60,32 @@ export default function MachinesScreen() {
     onRefresh: refresh,
   });
 
-  const handleSelectMachine = useCallback((machine: Machine) => {
-    const statusLabel = getMachineStatusConfig(machine.estado_equipo).label;
-    const brandModel = [machine.marca?.nombre, machine.modelo].filter(Boolean).join(' · ');
+  const handleSelectMachine = useCallback(
+    (machine: Machine) => {
+      const statusLabel = getMachineStatusConfig(machine.estado_equipo).label;
+      const brandModel = [machine.marca?.nombre, machine.modelo].filter(Boolean).join(' · ');
 
-    Alert.alert(
-      machine.nombre,
-      `Código: ${machine.codigo_interno}\nCategoría: ${machine.categoria.nombre}${
-        brandModel ? `\nEquipo: ${brandModel}` : ''
-      }\nEstado: ${statusLabel}`,
-    );
-  }, []);
+      Alert.alert(
+        machine.nombre,
+        `Código: ${machine.codigo_interno}\nCategoría: ${machine.categoria.nombre}${
+          brandModel ? `\nEquipo: ${brandModel}` : ''
+        }\nEstado actual: ${statusLabel}`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: `Iniciar mantención (${machine.categoria.nombre})`,
+            onPress: () => {
+              router.push({
+                pathname: '/maintenance/[machineId]',
+                params: { machineId: machine.id },
+              });
+            },
+          },
+        ],
+      );
+    },
+    [router],
+  );
 
   const renderMachineItem = useCallback(
     ({ item }: ListRenderItemInfo<Machine>) => (

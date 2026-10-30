@@ -689,6 +689,14 @@ async function findCachedMachineByUuid(uuid: string): Promise<Machine | null> {
 }
 
 /**
+ * Resolves a machine by its UUID, checking Supabase first and falling back to local cache.
+ */
+export async function fetchMachineById(machineId: string): Promise<Machine | null> {
+  const result = await resolveMachineByQrCode(machineId);
+  return result.maquina;
+}
+
+/**
  * Resolves a scanned QR code (containing a machine UUID) against Supabase
  * with automatic offline fallback to the local AsyncStorage machine catalog.
  */

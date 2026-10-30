@@ -21,6 +21,7 @@ import { MachineCardSkeletonList } from '@/components/machines/machine-card-skel
 import { AppHeader } from '@/components/shared/app-header';
 import { useMachines } from '@/hooks/use-machines';
 import { useWebPullToRefresh } from '@/hooks/use-web-pull-to-refresh';
+import { useLocals } from '@/providers/local-provider';
 import type { Machine, MachineStatusFilter } from '@/types/machine';
 
 const STATUS_FILTER_OPTIONS: { value: MachineStatusFilter; label: string }[] = [
@@ -33,6 +34,7 @@ const STATUS_FILTER_OPTIONS: { value: MachineStatusFilter; label: string }[] = [
 export default function MachinesScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { activeLocal } = useLocals();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
@@ -50,6 +52,7 @@ export default function MachinesScreen() {
     loadMore,
     refresh,
   } = useMachines({
+    localId: activeLocal?.id,
     selectedCategory,
     searchQuery,
     statusFilter,
@@ -60,8 +63,22 @@ export default function MachinesScreen() {
     onRefresh: refresh,
   });
 
+  const handleOpenMaintenance = useCallback(
+    (machine: Machine) => {
+      router.push({
+        pathname: '/maintenance/[machineId]',
+        params: { machineId: machine.id },
+      });
+    },
+    [router],
+  );
+
   const handleSelectMachine = useCallback(
     (machine: Machine) => {
+      if (Platform.OS === 'web') {
+        handleOpenMaintenance(machine);
+        return;
+      }
       const statusLabel = getMachineStatusConfig(machine.estado_equipo).label;
       const brandModel = [machine.marca?.nombre, machine.modelo].filter(Boolean).join(' · ');
 
@@ -74,17 +91,12 @@ export default function MachinesScreen() {
           { text: 'Cancelar', style: 'cancel' },
           {
             text: `Iniciar mantención (${machine.categoria.nombre})`,
-            onPress: () => {
-              router.push({
-                pathname: '/maintenance/[machineId]',
-                params: { machineId: machine.id },
-              });
-            },
+            onPress: () => handleOpenMaintenance(machine),
           },
         ],
       );
     },
-    [router],
+    [handleOpenMaintenance],
   );
 
   const renderMachineItem = useCallback(
@@ -181,10 +193,12 @@ export default function MachinesScreen() {
 
           {/* Contador de equipos y botón Filtrar */}
           <View className="mt-2 flex-row items-center justify-between px-4">
-            <Text className="text-xs font-medium text-slate-500">
+            <Text numberOfLines={1} className="mr-2 flex-1 text-xs font-medium text-slate-500">
               {isLoading
                 ? 'Cargando equipos...'
-                : `${totalCount} ${totalCount === 1 ? 'equipo' : 'equipos'}`}
+                : `${totalCount} ${totalCount === 1 ? 'equipo' : 'equipos'}${
+                    activeLocal ? ` · ${activeLocal.nombre}` : ''
+                  }`}
             </Text>
 
             <Pressable

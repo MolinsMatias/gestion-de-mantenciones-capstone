@@ -143,7 +143,9 @@ async function fetchMachineStatsByLocal(
  * Fetches active locals from `public.local` joined with `public.comuna` and `public.region`,
  * enriched with active and operational machine counts. Falls back to AsyncStorage cache when offline.
  */
-export async function fetchLocals(): Promise<Local[]> {
+export async function fetchLocals({
+  allowCacheFallback = true,
+}: { allowCacheFallback?: boolean } = {}): Promise<Local[]> {
   try {
     const supabase = getSupabase();
     const { data, error } = await supabase
@@ -203,6 +205,8 @@ export async function fetchLocals(): Promise<Local[]> {
 
     return locals;
   } catch (err) {
+    if (!allowCacheFallback)
+      throw err instanceof Error ? err : new Error('No se pudieron actualizar los locales.');
     console.warn('Error fetching locals from Supabase, falling back to cache:', err);
     const cached = await getCachedLocals();
     if (cached.length > 0) {
@@ -241,9 +245,10 @@ export async function getSavedActiveLocalId(): Promise<string | null> {
   }
 }
 
-export async function saveActiveLocalId(localId: string): Promise<void> {
+export async function saveActiveLocalId(localId: string | null): Promise<void> {
   try {
-    await AsyncStorage.setItem(ACTIVE_LOCAL_ID_KEY, localId);
+    if (localId) await AsyncStorage.setItem(ACTIVE_LOCAL_ID_KEY, localId);
+    else await AsyncStorage.removeItem(ACTIVE_LOCAL_ID_KEY);
   } catch (err) {
     console.warn('Could not persist active local ID:', err);
   }

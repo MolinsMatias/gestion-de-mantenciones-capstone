@@ -1,12 +1,14 @@
 import '@/global.css';
 
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Theme } from 'expo-router';
+import { NavigationBar } from 'expo-navigation-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect } from 'react';
 import { LogBox, Platform, StatusBar, useColorScheme } from 'react-native';
 
 import { useSupabaseSessionRefresh } from '@/hooks/use-supabase-session-refresh';
 import { AuthProvider } from '@/providers/auth-provider';
+import { LocalProvider } from '@/providers/local-provider';
 
 LogBox.ignoreLogs(['[Reanimated] Reduced motion setting is enabled on this device']);
 
@@ -64,29 +66,32 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? AppDarkTheme : AppLightTheme}>
+      {Platform.OS === 'android' ? <NavigationBar style="dark" hidden={false} /> : null}
       <StatusBar
         backgroundColor={HEADER_STATUS_BAR_COLOR}
         barStyle="light-content"
         translucent={false}
       />
       <AuthProvider>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: HEADER_STATUS_BAR_COLOR },
-          }}
-        >
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(app)" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="maintenance/[machineId]"
-            options={{
+        <LocalProvider>
+          <Stack
+            screenOptions={{
               headerShown: false,
-              animation: 'slide_from_right',
-              contentStyle: { backgroundColor: '#f8fafc' },
+              contentStyle: { backgroundColor: HEADER_STATUS_BAR_COLOR },
             }}
-          />
-        </Stack>
+          >
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            <Stack.Screen name="(app)" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="maintenance/[machineId]"
+              options={{
+                headerShown: false,
+                animation: 'slide_from_right',
+                contentStyle: { backgroundColor: '#f8fafc' },
+              }}
+            />
+          </Stack>
+        </LocalProvider>
       </AuthProvider>
     </ThemeProvider>
   );

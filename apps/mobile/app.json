@@ -37,6 +37,14 @@
     "plugins": [
       "expo-router",
       [
+        "expo-navigation-bar",
+        {
+          "enforceContrast": false,
+          "hidden": false,
+          "style": "dark"
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "Permitir a $(PRODUCT_NAME) acceder a la cámara para escanear códigos QR de máquinas y equipos."

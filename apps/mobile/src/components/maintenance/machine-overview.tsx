@@ -4,7 +4,7 @@ import { Text, View } from 'react-native';
 
 import { getMachineStatusConfig } from '@/components/machines/machine-card';
 import { Skeleton } from '@/components/shared/skeleton';
-import { useLocals } from '@/hooks/use-locals';
+import { useLocals } from '@/providers/local-provider';
 import type { Machine } from '@/types/machine';
 
 type MachineOverviewProps =

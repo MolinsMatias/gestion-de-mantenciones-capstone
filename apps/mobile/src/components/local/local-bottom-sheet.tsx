@@ -1,4 +1,4 @@
-import { Check, MapPin, Search, X } from 'lucide-react-native';
+import { Check, MapPin, Search, X, RefreshCw } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -21,6 +21,8 @@ export interface LocalBottomSheetProps {
   locals: Local[];
   activeLocalId: string | null;
   isLoading?: boolean;
+  error?: string | null;
+  onRefresh?: () => void;
   onSelect: (local: Local) => void;
   onClose: () => void;
 }
@@ -30,6 +32,8 @@ export function LocalBottomSheet({
   locals,
   activeLocalId,
   isLoading = false,
+  error,
+  onRefresh,
   onSelect,
   onClose,
 }: LocalBottomSheetProps) {
@@ -113,6 +117,46 @@ export function LocalBottomSheet({
         </View>
       </View>
 
+      {onRefresh ? (
+        <View className="flex-row items-center justify-between gap-3 px-5 pb-3">
+          <Text accessibilityLiveRegion="polite" className="flex-1 text-xs text-slate-600">
+            {isLoading
+              ? 'Actualizando locales...'
+              : `${locals.length} ${locals.length === 1 ? 'local disponible' : 'locales disponibles'}`}
+          </Text>
+          <Pressable
+            onPress={onRefresh}
+            disabled={isLoading}
+            accessibilityRole="button"
+            accessibilityLabel="Actualizar lista de locales"
+            accessibilityState={{ disabled: isLoading, busy: isLoading }}
+            className={`min-h-12 flex-row items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 active:bg-slate-100 ${isLoading ? 'opacity-60' : ''}`}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#2563eb" />
+            ) : (
+              <RefreshCw size={16} color="#2563eb" />
+            )}
+            <Text className="text-xs font-semibold text-blue-700">Actualizar</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {error ? (
+        <View
+          accessibilityLiveRegion="polite"
+          className="mx-5 mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3"
+        >
+          <Text className="text-sm font-semibold text-amber-900">
+            No se pudo actualizar la lista
+          </Text>
+          <Text className="mt-1 text-xs leading-5 text-amber-900">
+            {locals.length > 0
+              ? 'Se muestran los datos guardados en este dispositivo. Revisa tu conexión e intenta actualizar nuevamente.'
+              : 'Revisa tu conexión y pulsa Actualizar para reintentar.'}
+          </Text>
+        </View>
+      ) : null}
+
       {/* Listado desplazable de locales */}
       <ScrollView
         className="px-5"
@@ -135,7 +179,9 @@ export function LocalBottomSheet({
             <Text className="text-center text-xs text-slate-400">
               {searchQuery.trim().length > 0
                 ? `No se encontraron locales que coincidan con "${searchQuery}"`
-                : 'No hay locales activos disponibles.'}
+                : error
+                  ? 'No hay locales guardados para mostrar.'
+                  : 'No hay locales activos disponibles.'}
             </Text>
           </View>
         ) : (

@@ -18,8 +18,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LocalBottomSheet } from '@/components/local/local-bottom-sheet';
 import { AppHeader } from '@/components/shared/app-header';
-import { useLocals } from '@/hooks/use-locals';
 import { useNetworkStatus } from '@/hooks/use-network-status';
+import { useLocals } from '@/providers/local-provider';
 import { syncAllActiveMachinesForOfflineCache } from '@/services/machines';
 
 const bowlingBg = require('@/assets/images/bowling-bg.jpg');
@@ -80,7 +80,14 @@ export default function HomeScreen() {
     useNetworkStatus();
 
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
-  const { locals, activeLocal, isLoading: isLoadingLocals, selectLocal } = useLocals();
+  const {
+    locals,
+    activeLocal,
+    isLoading: isLoadingLocals,
+    error: localsError,
+    selectLocal,
+    refreshLocals,
+  } = useLocals();
   const [isLocalSheetOpen, setIsLocalSheetOpen] = useState(false);
 
   useEffect(() => {
@@ -149,7 +156,10 @@ export default function HomeScreen() {
                 </View>
 
                 <Pressable
-                  onPress={() => setIsLocalSheetOpen(true)}
+                  onPress={() => {
+                    setIsLocalSheetOpen(true);
+                    void refreshLocals();
+                  }}
                   accessibilityRole="button"
                   accessibilityLabel="Cambiar local activo"
                   className="shrink-0 rounded-lg border border-white/20 bg-white/20 px-2.5 py-1 active:bg-white/30"
@@ -520,6 +530,8 @@ export default function HomeScreen() {
         locals={locals}
         activeLocalId={activeLocal?.id ?? null}
         isLoading={isLoadingLocals}
+        error={localsError}
+        onRefresh={() => void refreshLocals()}
         onSelect={(newLocal) => selectLocal(newLocal)}
         onClose={() => setIsLocalSheetOpen(false)}
       />

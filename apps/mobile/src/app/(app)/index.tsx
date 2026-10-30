@@ -1,21 +1,24 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
   AlertCircle,
   AlertTriangle,
   Check,
   MapPin,
   Plus,
-  SlidersHorizontal,
   Wifi,
   WifiOff,
-  Wrench,
 } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import {
+  TodayMaintenanceHeader,
+  TodayMaintenanceList,
+  useTodayMaintenanceLog,
+} from '@/components/maintenance/today-maintenance-log';
 import { LocalBottomSheet } from '@/components/local/local-bottom-sheet';
 import { AppHeader } from '@/components/shared/app-header';
 import { useNetworkStatus } from '@/hooks/use-network-status';
@@ -23,50 +26,6 @@ import { useLocals } from '@/providers/local-provider';
 import { syncAllActiveMachinesForOfflineCache } from '@/services/machines';
 
 const bowlingBg = require('@/assets/images/bowling-bg.jpg');
-
-interface BitacoraItem {
-  id: string;
-  codigo_maquina: string;
-  titulo: string;
-  descripcion: string;
-  hora: string;
-  insumos: string;
-  tiempo: string;
-  tipo: 'calibracion' | 'reemplazo' | 'ajuste';
-}
-
-const BITACORA_ITEMS: BitacoraItem[] = [
-  {
-    id: '1',
-    codigo_maquina: 'SZM-018',
-    titulo: 'SZM-018 - Pinball Piratas del Caribe',
-    descripcion: 'Ajuste de sensibilidad en optos de rampa central y limpieza de playfield',
-    hora: '14:15',
-    insumos: 'Ninguno',
-    tiempo: '25 min',
-    tipo: 'calibracion',
-  },
-  {
-    id: '2',
-    codigo_maquina: 'SZM-003',
-    titulo: 'SZM-003 - Scat Cats P2',
-    descripcion: 'Reemplazo de rodillo dispensador de tickets y prueba de conteo óptico',
-    hora: '11:20',
-    insumos: 'Rodillo dispensador #TK-204',
-    tiempo: '40 min',
-    tipo: 'reemplazo',
-  },
-  {
-    id: '3',
-    codigo_maquina: 'SZM-008',
-    titulo: 'SZM-008 - Fast And Furious Drift 1',
-    descripcion: 'Calibración de potenciómetro de volante y revisión de pedalera',
-    hora: '09:45',
-    insumos: 'Ninguno',
-    tiempo: '20 min',
-    tipo: 'ajuste',
-  },
-];
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -80,6 +39,7 @@ export default function HomeScreen() {
     useNetworkStatus();
 
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const todayLog = useTodayMaintenanceLog();
   const {
     locals,
     activeLocal,
@@ -89,6 +49,12 @@ export default function HomeScreen() {
     refreshLocals,
   } = useLocals();
   const [isLocalSheetOpen, setIsLocalSheetOpen] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshLocals();
+    }, [refreshLocals]),
+  );
 
   useEffect(() => {
     if (isOnline) {
@@ -102,17 +68,11 @@ export default function HomeScreen() {
 
   return (
     <View className="flex-1 bg-[#f8fafc]">
-      <ScrollView
-        className="flex-1"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingBottom: Math.max(insets.bottom, 16) + 84,
-        }}
-      >
+      <View className="shrink-0 bg-[#f8fafc] pb-4">
         {/* Cabecera oscura institucional */}
         <AppHeader isOnline={isOnline} onPressConnectivity={handleConnectivityPress} />
 
-        {/* Contenido principal con desplazamiento centrado */}
+        {/* Contexto del local fijo bajo la cabecera */}
         <View className="-mt-3.5 w-full max-w-xl flex-col gap-4 self-center px-4">
           {/* Tarjeta de contexto del local activo */}
           <View
@@ -194,7 +154,18 @@ export default function HomeScreen() {
               </View>
             </View>
           </View>
-
+        </View>
+      </View>
+      <ScrollView
+        className="flex-1"
+        showsVerticalScrollIndicator={false}
+        stickyHeaderIndices={[1]}
+        contentContainerStyle={{
+          paddingTop: 16,
+          paddingBottom: Math.max(insets.bottom, 16) + 84,
+        }}
+      >
+        <View className="w-full max-w-xl flex-col gap-4 self-center px-4 pb-3">
           {/* Tarjeta de acción rápida: Bitácora autónoma con padding garantizado */}
           <View
             className="overflow-hidden rounded-2xl shadow-md shadow-blue-500/20"
@@ -323,104 +294,18 @@ export default function HomeScreen() {
                 <Text className="text-2xl font-extrabold leading-none text-slate-900">
                   {activeLocal ? activeLocal.maquinas_fuera_de_servicio : '—'}
                 </Text>
-                <Text className="mt-1 text-[10px] font-semibold text-red-600">
-                  Inoperativas hoy
-                </Text>
+                <Text className="mt-1 text-[10px] font-semibold text-red-600">Inoperativas</Text>
               </View>
             </View>
           </View>
+        </View>
 
-          {/* Sección: Mi bitácora de terreno hoy */}
-          <View className="mb-2 flex-col gap-2.5">
-            <View className="flex-row items-center justify-between px-0.5">
-              <View className="flex-row items-center gap-2">
-                <Text className="text-sm font-bold text-slate-900">Mi bitácora de terreno hoy</Text>
-                <View className="rounded-full bg-blue-100 px-2 py-0.5">
-                  <Text className="text-[11px] font-bold text-blue-700">
-                    {BITACORA_ITEMS.length}
-                  </Text>
-                </View>
-              </View>
-              <Text className="text-[11px] font-semibold text-slate-500">Cronológico</Text>
-            </View>
+        {/* Encabezado fijo al llegar por scroll */}
+        <TodayMaintenanceHeader totalCount={todayLog.page.totalCount} loading={todayLog.loading} />
 
-            {/* Listado de intervenciones registradas */}
-            {BITACORA_ITEMS.map((item) => {
-              const isCalibracion = item.tipo === 'calibracion';
-              const isReemplazo = item.tipo === 'reemplazo';
-
-              return (
-                <View
-                  key={item.id}
-                  className="flex-col gap-2.5 rounded-2xl border border-slate-200/90 bg-white p-3.5 shadow-sm"
-                >
-                  <View className="flex-row items-start justify-between">
-                    <View className="mr-2 flex-1 flex-row items-start gap-2.5">
-                      <View
-                        className={`mt-0.5 h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
-                          isCalibracion
-                            ? 'border-blue-100 bg-blue-50'
-                            : isReemplazo
-                              ? 'border-emerald-100 bg-emerald-50'
-                              : 'border-slate-200 bg-slate-100'
-                        }`}
-                      >
-                        {isCalibracion ? (
-                          <Wrench size={16} color="#2563eb" strokeWidth={2.2} />
-                        ) : isReemplazo ? (
-                          <Check size={16} color="#059669" strokeWidth={2.2} />
-                        ) : (
-                          <SlidersHorizontal size={16} color="#334155" strokeWidth={2.2} />
-                        )}
-                      </View>
-
-                      <View className="flex-1">
-                        <Text className="text-xs font-bold text-slate-900">{item.titulo}</Text>
-                        <Text className="mt-0.5 text-xs text-slate-500">{item.descripcion}</Text>
-                      </View>
-                    </View>
-
-                    <View
-                      className={`shrink-0 rounded-full border px-2 py-0.5 ${
-                        isCalibracion
-                          ? 'border-blue-100 bg-blue-50'
-                          : isReemplazo
-                            ? 'border-emerald-200 bg-emerald-50'
-                            : 'border-slate-200 bg-slate-100'
-                      }`}
-                    >
-                      <Text
-                        className={`text-[10px] font-bold ${
-                          isCalibracion
-                            ? 'text-blue-700'
-                            : isReemplazo
-                              ? 'text-emerald-700'
-                              : 'text-slate-700'
-                        }`}
-                      >
-                        {item.hora}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View className="flex-row items-center justify-between border-t border-slate-100 pt-2 text-xs">
-                    <Text className="text-[11px] text-slate-500">
-                      Insumos: {item.insumos} • Tiempo: {item.tiempo}
-                    </Text>
-
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Ver ficha de ${item.titulo}`}
-                      className="active:opacity-70"
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <Text className="text-[11px] font-bold text-blue-600">Ver ficha</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
+        {/* Lista de intervenciones de hoy */}
+        <View className="w-full max-w-xl self-center px-4 pt-3">
+          <TodayMaintenanceList state={todayLog} />
         </View>
       </ScrollView>
 

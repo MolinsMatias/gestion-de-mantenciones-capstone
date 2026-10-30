@@ -1,14 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import {
-  AlertCircle,
-  ArrowLeft,
-  Check,
-  ArrowRight,
-  Clock,
-  Info,
-  Send,
-  WifiOff,
-} from 'lucide-react-native';
+import { AlertCircle, Check, Info, WifiOff } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -16,7 +7,6 @@ import {
   Keyboard,
   Easing,
   useWindowDimensions,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -24,7 +14,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MachineOverview } from '@/components/maintenance/machine-overview';
 import {
@@ -32,7 +21,9 @@ import {
   type MaintenanceFeedback,
 } from '@/components/maintenance/maintenance-feedback-dialog';
 import { MaintenanceField } from '@/components/maintenance/maintenance-field';
-import { AppHeader } from '@/components/shared/app-header';
+import { MaintenanceHeader } from '@/components/maintenance/maintenance-header';
+import { MaintenanceFooter } from '@/components/maintenance/maintenance-footer';
+import { MaintenanceStepHeading } from '@/components/maintenance/maintenance-step-heading';
 import { KeyboardScrollView } from '@/components/shared/keyboard-scroll-view';
 import { Skeleton } from '@/components/shared/skeleton';
 import { useNetworkStatus } from '@/hooks/use-network-status';
@@ -74,7 +65,6 @@ function formatElapsedTime(seconds: number): string {
 export default function MaintenanceScreen() {
   const { machineId } = useLocalSearchParams<{ machineId: string }>();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { width: viewportWidth } = useWindowDimensions();
   const { isOnline } = useNetworkStatus();
   const { session } = useAuth();
@@ -474,34 +464,34 @@ export default function MaintenanceScreen() {
   if (isLoading) {
     return (
       <View className="flex-1 bg-slate-50">
-        <AppHeader
-          title="Mantención"
-          subtitle="Cargando equipo y pauta"
-          showConnectivity={false}
-          leadingElement={
-            <Pressable
-              onPress={() => router.back()}
-              accessibilityRole="button"
-              accessibilityLabel="Volver a la pantalla anterior"
-              className="min-h-12 min-w-12 items-center justify-center rounded-xl bg-white/10 active:bg-white/20"
-            >
-              <ArrowLeft size={20} color="#ffffff" />
-            </Pressable>
-          }
+        <MaintenanceHeader
+          title="Equipo e intervención"
+          step={1}
+          elapsedTime={formatElapsedTime(elapsedSeconds)}
+          isOnline={isOnline}
+          onBack={() => router.back()}
         />
         <KeyboardScrollView
           className="flex-1"
-          contentContainerStyle={{ padding: 20, paddingBottom: Math.max(insets.bottom, 24) }}
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 24 }}
         >
           <View className="w-full max-w-xl self-center gap-5">
+            <MaintenanceStepHeading title="Equipo e intervención" step={0} />
             <View className="rounded-2xl border border-blue-200 bg-white p-4 shadow-sm">
+              <Text accessibilityRole="header" className="text-base font-bold text-slate-900">
+                Tipo de intervención
+              </Text>
+              <Text className="mb-4 mt-1 text-sm leading-5 text-slate-600">
+                Selecciona el trabajo que vas a realizar.
+              </Text>
               <Skeleton label="Cargando tipo de intervención">
-                <View className="h-5 w-44 rounded bg-slate-200" />
-                <View className="mb-4 mt-2 h-4 w-4/5 rounded bg-slate-200" />
                 <View className="flex-row gap-2">
                   {[0, 1, 2].map((index) => (
                     <View key={index} className="h-12 flex-1 rounded-xl bg-slate-200" />
                   ))}
+                </View>
+                <View className="mt-3 h-5 justify-center">
+                  <View className="h-3 w-4/5 rounded bg-slate-200" />
                 </View>
               </Skeleton>
             </View>
@@ -510,6 +500,11 @@ export default function MaintenanceScreen() {
             </View>
           </View>
         </KeyboardScrollView>
+        <MaintenanceFooter
+          helperText="El tiempo de intervención ya está en curso"
+          previousDisabled
+          nextDisabled
+        />
       </View>
     );
   }
@@ -546,7 +541,6 @@ export default function MaintenanceScreen() {
       : isLastStep
         ? 'Cierre de la intervención'
         : activeSection.nombre;
-  const progress = Math.round(((activeStep + 1) / totalSteps) * 100);
   const sectionErrors =
     activeSection && !isLastStep
       ? activeSection.items.filter((item) => {
@@ -572,54 +566,15 @@ export default function MaintenanceScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       className="flex-1 bg-slate-50"
     >
-      <AppHeader
-        title="Mantención"
-        subtitle={stepTitle}
-        leadingElement={
-          <Pressable
-            onPress={() => router.back()}
-            disabled={isSubmitting || isTransitioning}
-            accessibilityRole="button"
-            accessibilityLabel="Volver a la pantalla anterior"
-            accessibilityState={{ disabled: isSubmitting || isTransitioning }}
-            className="min-h-12 min-w-12 items-center justify-center rounded-xl bg-white/10 active:bg-white/20"
-          >
-            <ArrowLeft size={20} color="#ffffff" />
-          </Pressable>
-        }
-        rightElement={
-          <View className="flex-row items-center gap-2">
-            <View
-              className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-400' : 'bg-amber-400'}`}
-            />
-            <Text className="text-xs font-medium text-slate-200">
-              {isOnline ? 'En línea' : 'Modo local'}
-            </Text>
-          </View>
-        }
-      >
-        <View className="w-full max-w-xl self-center border-t border-white/10 pt-4">
-          <View className="flex-row flex-wrap items-center justify-between gap-2">
-            <Text accessibilityLiveRegion="polite" className="text-xs font-semibold text-white">
-              Paso {activeStep + 1} de {totalSteps}
-            </Text>
-            <View className="flex-row items-center gap-2">
-              <Clock size={14} color="#cbd5e1" />
-              <Text className="text-xs font-medium text-slate-200">
-                {formatElapsedTime(elapsedSeconds)}
-              </Text>
-            </View>
-          </View>
-          <View
-            accessibilityRole="progressbar"
-            accessibilityLabel="Progreso de pasos de la mantención"
-            accessibilityValue={{ min: 1, max: totalSteps, now: activeStep + 1 }}
-            className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/15"
-          >
-            <View className="h-full rounded-full bg-blue-400" style={{ width: `${progress}%` }} />
-          </View>
-        </View>
-      </AppHeader>
+      <MaintenanceHeader
+        title={stepTitle}
+        step={activeStep + 1}
+        totalSteps={totalSteps}
+        elapsedTime={formatElapsedTime(elapsedSeconds)}
+        isOnline={isOnline}
+        onBack={() => router.back()}
+        disabled={isSubmitting || isTransitioning}
+      />
 
       <View className="flex-1 overflow-hidden bg-slate-50">
         <Animated.View
@@ -640,33 +595,7 @@ export default function MaintenanceScreen() {
               onLayout={handleStepLayout}
               className="w-full max-w-xl self-center gap-5"
             >
-              <View>
-                {activeStep === 0 || isLastStep ? (
-                  <Text className="mb-2 text-xs font-semibold uppercase tracking-wider text-blue-700">
-                    {activeStep === 0 ? 'Antes de comenzar' : 'Último paso'}
-                  </Text>
-                ) : null}
-                <View className="flex-row items-center gap-3">
-                  {activeStep > 0 && !isLastStep ? (
-                    <View className="h-9 w-9 items-center justify-center rounded-xl bg-blue-50">
-                      <Text className="text-sm font-bold text-blue-700">{activeStep}</Text>
-                    </View>
-                  ) : null}
-                  <Text
-                    accessibilityRole="header"
-                    className="flex-1 text-xl font-bold text-slate-900"
-                  >
-                    {stepTitle}
-                  </Text>
-                </View>
-                {activeStep === 0 || isLastStep ? (
-                  <Text className="mt-2 text-sm leading-6 text-slate-600">
-                    {activeStep === 0
-                      ? 'Confirma el equipo y selecciona el tipo de trabajo que vas a realizar.'
-                      : 'Completa el registro antes de finalizar la mantención.'}
-                  </Text>
-                ) : null}
-              </View>
+              <MaintenanceStepHeading title={stepTitle} step={activeStep} isLastStep={isLastStep} />
               {activeStep === 0 ? (
                 <>
                   <View className="rounded-2xl border border-blue-200 bg-white p-4 shadow-sm">
@@ -1013,51 +942,21 @@ export default function MaintenanceScreen() {
         </Animated.View>
       </View>
 
-      <View
-        style={{ paddingBottom: Math.max(insets.bottom, 16) }}
-        className="border-t border-slate-200 bg-white px-5 pt-3"
-      >
-        <View className="w-full max-w-xl self-center">
-          <Text className="mb-3 text-center text-xs text-slate-600">
-            {isLastStep
-              ? `${answeredItemsCount} de ${totalItemsCount} puntos respondidos · Revisa el cierre`
-              : activeStep === 0
-                ? 'El tiempo de intervención ya está en curso'
-                : 'Tus respuestas se conservan al cambiar de paso'}
-          </Text>
-          <View className="flex-row gap-3">
-            <Pressable
-              onPress={() => changeStep(activeStep - 1)}
-              disabled={activeStep === 0 || isSubmitting || isTransitioning}
-              accessibilityRole="button"
-              accessibilityLabel="Volver al paso anterior"
-              accessibilityState={{ disabled: activeStep === 0 || isSubmitting || isTransitioning }}
-              className={`min-h-12 flex-1 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 active:bg-slate-200 ${activeStep === 0 || isSubmitting || isTransitioning ? 'opacity-40' : ''}`}
-            >
-              <ArrowLeft size={22} color="#334155" />
-            </Pressable>
-            <Pressable
-              onPress={isLastStep ? handleSubmit : handleNext}
-              disabled={isSubmitting || isTransitioning}
-              accessibilityRole="button"
-              accessibilityLabel={isLastStep ? 'Finalizar mantención' : 'Siguiente paso'}
-              accessibilityState={{ disabled: isSubmitting || isTransitioning, busy: isSubmitting }}
-              className={`min-h-12 flex-1 flex-row items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 active:bg-blue-700 ${isSubmitting || isTransitioning ? 'opacity-60' : ''}`}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : isLastStep ? (
-                <Send size={18} color="#ffffff" />
-              ) : (
-                <ArrowRight size={18} color="#ffffff" />
-              )}
-              {isLastStep && !isSubmitting ? (
-                <Text className="text-sm font-bold text-white">Finalizar</Text>
-              ) : null}
-            </Pressable>
-          </View>
-        </View>
-      </View>
+      <MaintenanceFooter
+        helperText={
+          isLastStep
+            ? `${answeredItemsCount} de ${totalItemsCount} puntos respondidos · Revisa el cierre`
+            : activeStep === 0
+              ? 'El tiempo de intervención ya está en curso'
+              : 'Tus respuestas se conservan al cambiar de paso'
+        }
+        onPrevious={() => changeStep(activeStep - 1)}
+        onNext={isLastStep ? handleSubmit : handleNext}
+        previousDisabled={activeStep === 0 || isSubmitting || isTransitioning}
+        nextDisabled={isSubmitting || isTransitioning}
+        isSubmitting={isSubmitting}
+        isLastStep={isLastStep}
+      />
       <MaintenanceFeedbackDialog feedback={feedback} onConfirm={handleFeedbackConfirm} />
     </KeyboardAvoidingView>
   );

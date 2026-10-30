@@ -56,12 +56,6 @@ function generateUuid(): string {
   });
 }
 
-function formatElapsedTime(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-}
-
 export default function MaintenanceScreen() {
   const { machineId } = useLocalSearchParams<{ machineId: string }>();
   const router = useRouter();
@@ -142,7 +136,6 @@ export default function MaintenanceScreen() {
   const [maintenanceId, setMaintenanceId] = useState<string>(generateUuid);
   const [maintenanceType, setMaintenanceType] = useState<MaintenanceType>('preventiva');
   const [startedAt, setStartedAt] = useState<string>(() => new Date().toISOString());
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   // Checklist answers indexed by item_id
   const [answers, setAnswers] = useState<Record<string, ItemAnswer>>({});
@@ -162,18 +155,6 @@ export default function MaintenanceScreen() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTimerStopped = feedback?.kind === 'sent';
-
-  // Timer
-  useEffect(() => {
-    if (isTimerStopped) return;
-    const startMs = new Date(startedAt).getTime();
-    const interval = setInterval(() => {
-      const nowMs = Date.now();
-      setElapsedSeconds(Math.max(0, Math.floor((nowMs - startMs) / 1000)));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [startedAt, isTimerStopped]);
 
   // Initial load
   useEffect(() => {
@@ -467,7 +448,8 @@ export default function MaintenanceScreen() {
         <MaintenanceHeader
           title="Equipo e intervención"
           step={1}
-          elapsedTime={formatElapsedTime(elapsedSeconds)}
+          startedAt={startedAt}
+          isTimerStopped={isTimerStopped}
           isOnline={isOnline}
           onBack={() => router.back()}
         />
@@ -561,8 +543,10 @@ export default function MaintenanceScreen() {
     changeStep(activeStep + 1);
   };
 
+  const ScreenContainer = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
+
   return (
-    <KeyboardAvoidingView
+    <ScreenContainer
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       className="flex-1 bg-slate-50"
     >
@@ -570,7 +554,8 @@ export default function MaintenanceScreen() {
         title={stepTitle}
         step={activeStep + 1}
         totalSteps={totalSteps}
-        elapsedTime={formatElapsedTime(elapsedSeconds)}
+        startedAt={startedAt}
+        isTimerStopped={isTimerStopped}
         isOnline={isOnline}
         onBack={() => router.back()}
         disabled={isSubmitting || isTransitioning}
@@ -579,7 +564,9 @@ export default function MaintenanceScreen() {
       <View className="flex-1 overflow-hidden bg-slate-50">
         <Animated.View
           pointerEvents={isTransitioning || isSubmitting ? 'none' : 'auto'}
-          style={{ flex: 1, transform: [{ translateX: stepOffset }] }}
+          style={
+            isTransitioning ? { flex: 1, transform: [{ translateX: stepOffset }] } : { flex: 1 }
+          }
           className="bg-slate-50"
           renderToHardwareTextureAndroid={isTransitioning}
           shouldRasterizeIOS={isTransitioning}
@@ -958,6 +945,6 @@ export default function MaintenanceScreen() {
         isLastStep={isLastStep}
       />
       <MaintenanceFeedbackDialog feedback={feedback} onConfirm={handleFeedbackConfirm} />
-    </KeyboardAvoidingView>
+    </ScreenContainer>
   );
 }

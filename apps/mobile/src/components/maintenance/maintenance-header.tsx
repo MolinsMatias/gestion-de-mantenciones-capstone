@@ -1,14 +1,21 @@
 import { ArrowLeft, Clock } from 'lucide-react-native';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { AppHeader } from '@/components/shared/app-header';
+
+function formatElapsedTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
 
 interface MaintenanceHeaderProps {
   title: string;
   step: number;
   totalSteps?: number;
-  elapsedTime: string;
+  startedAt: string;
+  isTimerStopped?: boolean;
   isOnline: boolean;
   onBack: () => void;
   disabled?: boolean;
@@ -18,11 +25,29 @@ export function MaintenanceHeader({
   title,
   step,
   totalSteps,
-  elapsedTime,
+  startedAt,
+  isTimerStopped = false,
   isOnline,
   onBack,
   disabled = false,
 }: MaintenanceHeaderProps) {
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (isTimerStopped) return;
+
+    const interval = setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isTimerStopped]);
+
+  const startMs = new Date(startedAt).getTime();
+  const elapsedSeconds = Number.isNaN(startMs)
+    ? 0
+    : Math.max(0, Math.floor((nowMs - startMs) / 1000));
+  const elapsedTime = formatElapsedTime(elapsedSeconds);
   const progress = totalSteps ? Math.round((step / totalSteps) * 100) : 0;
   return (
     <AppHeader

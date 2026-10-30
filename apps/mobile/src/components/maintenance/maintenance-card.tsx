@@ -2,11 +2,33 @@ import { Check, ChevronRight, MapPin, Settings, Wrench, Zap } from 'lucide-react
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 
+import { Skeleton } from '@/components/shared/skeleton';
+
 import type { MaintenanceItem } from '@/types/maintenance';
 
-export interface MaintenanceCardProps {
-  item: MaintenanceItem;
+export type MaintenanceCardProps = {
   onPress?: (item: MaintenanceItem) => void;
+} & ({ isLoading: true; item?: MaintenanceItem } | { isLoading?: false; item: MaintenanceItem });
+
+export function MaintenanceCardSkeleton() {
+  return (
+    <View className="mb-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+      <Skeleton label="Cargando mantención">
+        <View className="flex-row items-center">
+          <View className="h-12 w-12 rounded-full bg-slate-200" />
+          <View className="ml-3.5 mr-2 flex-1 gap-2">
+            <View className="flex-row justify-between gap-3">
+              <View className="h-4 flex-1 rounded bg-slate-200" />
+              <View className="h-3 w-12 rounded bg-slate-200" />
+            </View>
+            <View className="h-3 w-3/5 rounded bg-slate-200" />
+            <View className="h-3 w-4/5 rounded bg-slate-200" />
+          </View>
+          <View className="h-4 w-4 rounded bg-slate-200" />
+        </View>
+      </Skeleton>
+    </View>
+  );
 }
 
 /**
@@ -65,7 +87,9 @@ function MaintenanceLeadingIcon({ type }: { type: MaintenanceItem['tipo_icono'] 
 /**
  * Maintenance Card displaying task, time, category, location and navigation indicator.
  */
-export function MaintenanceCard({ item, onPress }: MaintenanceCardProps) {
+export function MaintenanceCard(props: MaintenanceCardProps) {
+  if (props.isLoading) return <MaintenanceCardSkeleton />;
+  const { item, onPress } = props;
   return (
     <Pressable
       onPress={() => onPress?.(item)}

@@ -31,6 +31,7 @@ import { MachineOverview } from '@/components/maintenance/machine-overview';
 import { MaintenanceField } from '@/components/maintenance/maintenance-field';
 import { AppHeader } from '@/components/shared/app-header';
 import { KeyboardScrollView } from '@/components/shared/keyboard-scroll-view';
+import { Skeleton } from '@/components/shared/skeleton';
 import { useNetworkStatus } from '@/hooks/use-network-status';
 import { useAuth } from '@/providers/auth-provider';
 import {
@@ -436,11 +437,43 @@ export default function MaintenanceScreen() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 items-center justify-center bg-[#f8fafc]">
-        <ActivityIndicator size="large" color="#2563eb" />
-        <Text className="mt-3 text-sm font-medium text-slate-600">
-          Cargando pauta de mantención...
-        </Text>
+      <View className="flex-1 bg-slate-50">
+        <AppHeader
+          title="Mantención"
+          subtitle="Cargando equipo y pauta"
+          showConnectivity={false}
+          leadingElement={
+            <Pressable
+              onPress={() => router.back()}
+              accessibilityRole="button"
+              accessibilityLabel="Volver a la pantalla anterior"
+              className="min-h-12 min-w-12 items-center justify-center rounded-xl bg-white/10 active:bg-white/20"
+            >
+              <ArrowLeft size={20} color="#ffffff" />
+            </Pressable>
+          }
+        />
+        <KeyboardScrollView
+          className="flex-1"
+          contentContainerStyle={{ padding: 20, paddingBottom: Math.max(insets.bottom, 24) }}
+        >
+          <View className="w-full max-w-xl self-center gap-5">
+            <View className="rounded-2xl border border-blue-200 bg-white p-4 shadow-sm">
+              <Skeleton label="Cargando tipo de intervención">
+                <View className="h-5 w-44 rounded bg-slate-200" />
+                <View className="mb-4 mt-2 h-4 w-4/5 rounded bg-slate-200" />
+                <View className="flex-row gap-2">
+                  {[0, 1, 2].map((index) => (
+                    <View key={index} className="h-12 flex-1 rounded-xl bg-slate-200" />
+                  ))}
+                </View>
+              </Skeleton>
+            </View>
+            <View className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+              <MachineOverview isLoading />
+            </View>
+          </View>
+        </KeyboardScrollView>
       </View>
     );
   }

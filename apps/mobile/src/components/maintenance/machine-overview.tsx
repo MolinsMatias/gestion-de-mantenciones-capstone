@@ -3,12 +3,43 @@ import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { getMachineStatusConfig } from '@/components/machines/machine-card';
+import { Skeleton } from '@/components/shared/skeleton';
 import { useLocals } from '@/hooks/use-locals';
 import type { Machine } from '@/types/machine';
 
-export function MachineOverview({ machine }: { machine: Machine }) {
+type MachineOverviewProps =
+  { isLoading: true; machine?: Machine } | { isLoading?: false; machine: Machine };
+
+export function MachineOverview(props: MachineOverviewProps) {
+  return props.isLoading ? (
+    <MachineOverviewSkeleton />
+  ) : (
+    <MachineOverviewContent machine={props.machine} />
+  );
+}
+
+export function MachineOverviewSkeleton() {
+  return (
+    <Skeleton label="Cargando información del equipo">
+      <View className="mb-4 rounded-xl bg-slate-200" style={{ aspectRatio: 4 / 3 }} />
+      <View className="h-6 w-3/4 rounded-md bg-slate-200" />
+      <View className="mb-2 mt-2 h-5 w-32 rounded-md bg-slate-200" />
+      <View className="mt-2 flex-row flex-wrap">
+        {Array.from({ length: 7 }, (_, index) => (
+          <View key={index} className="min-w-[140px] flex-1 basis-1/2 py-3 pr-3">
+            <View className="mb-2 h-3 w-20 rounded bg-slate-200" />
+            <View className="h-5 w-4/5 rounded bg-slate-200" />
+          </View>
+        ))}
+      </View>
+    </Skeleton>
+  );
+}
+
+function MachineOverviewContent({ machine }: { machine: Machine }) {
   const [failedPhotoUrl, setFailedPhotoUrl] = useState<string | null>(null);
-  const { locals } = useLocals();
+  const [loadedPhotoUrl, setLoadedPhotoUrl] = useState<string | null>(null);
+  const { locals, isLoading: isLoadingLocals } = useLocals();
   const local = locals.find((item) => item.id === machine.local_id);
   const status = getMachineStatusConfig(machine.estado_equipo);
   const lastMaintenance = machine.ultima_mantencion_at
@@ -43,6 +74,7 @@ export function MachineOverview({ machine }: { machine: Machine }) {
             contentFit="contain"
             cachePolicy="memory-disk"
             transition={0}
+            onLoad={() => setLoadedPhotoUrl(machine.foto_url)}
             onError={() => setFailedPhotoUrl(machine.foto_url)}
           />
         ) : (
@@ -52,6 +84,15 @@ export function MachineOverview({ machine }: { machine: Machine }) {
               : 'Equipo sin fotografía registrada'}
           </Text>
         )}
+        {machine.foto_url &&
+        machine.foto_url !== failedPhotoUrl &&
+        machine.foto_url !== loadedPhotoUrl ? (
+          <View pointerEvents="none" className="absolute inset-0">
+            <Skeleton label="Cargando fotografía del equipo">
+              <View className="rounded-xl bg-slate-200" style={{ aspectRatio: 4 / 3 }} />
+            </Skeleton>
+          </View>
+        ) : null}
       </View>
       <Text accessibilityRole="header" className="text-lg font-bold leading-7 text-slate-900">
         {machine.nombre}
@@ -64,7 +105,15 @@ export function MachineOverview({ machine }: { machine: Machine }) {
         {details.map(([label, value]) => (
           <View key={label} className="min-w-[140px] flex-1 basis-1/2 py-3 pr-3">
             <Text className="text-xs text-slate-500">{label}</Text>
-            <Text className="mt-1 text-sm font-medium leading-5 text-slate-800">{value}</Text>
+            {isLoadingLocals && !local && (label === 'Local' || label === 'Dirección') ? (
+              <View className="mt-1">
+                <Skeleton label={`Cargando ${label.toLowerCase()} del equipo`}>
+                  <View className="h-5 w-4/5 rounded bg-slate-200" />
+                </Skeleton>
+              </View>
+            ) : (
+              <Text className="mt-1 text-sm font-medium leading-5 text-slate-800">{value}</Text>
+            )}
           </View>
         ))}
       </View>

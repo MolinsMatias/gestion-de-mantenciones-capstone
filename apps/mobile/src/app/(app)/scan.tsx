@@ -11,15 +11,12 @@ import {
   AlertTriangle,
   Camera,
   CameraOff,
-  CheckCircle2,
-  ClipboardList,
   Flashlight,
   FlashlightOff,
   QrCode,
   RefreshCw,
   Settings,
   SwitchCamera,
-  WifiOff,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -32,6 +29,7 @@ import {
   StyleSheet,
   Text,
   View,
+  Vibration,
 } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -44,11 +42,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { MachineCard } from '@/components/machines/machine-card';
 import { AppHeader } from '@/components/shared/app-header';
 import { useNetworkStatus } from '@/hooks/use-network-status';
 import { resolveMachineByQrCode, syncAllActiveMachinesForOfflineCache } from '@/services/machines';
-import type { Machine, QrMachineResolutionResult } from '@/types/machine';
+import type { QrMachineResolutionResult } from '@/types/machine';
 
 const SCAN_FRAME_SIZE = 232;
 const LASER_MAX_TRANSLATE = SCAN_FRAME_SIZE - 12;
@@ -70,6 +67,10 @@ export default function ScanScreen() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
   const triedFallbackFacingRef = useRef(false);
+  const scanLockedRef = useRef(false);
+  const isFocusedRef = useRef(false);
+  const scanRequestRef = useRef(0);
+  const [resolutionError, setResolutionError] = useState<string | null>(null);
 
   const laserTranslateY = useSharedValue(12);
 
@@ -103,7 +104,15 @@ export default function ScanScreen() {
   // Desmontar la cámara al salir de la pestaña según recomendación oficial de expo-camera
   useFocusEffect(
     useCallback(() => {
+      isFocusedRef.current = true;
+      scanLockedRef.current = false;
+      setScannedData(null);
+      setQrResolution(null);
+      setResolutionError(null);
+      setIsResolvingMachine(false);
       return () => {
+        isFocusedRef.current = false;
+        scanRequestRef.current += 1;
         setIsCameraActive(false);
         setIsCameraReady(false);
         setIsTorchOn(false);
@@ -156,6 +165,9 @@ export default function ScanScreen() {
 
     setCameraError(null);
     triedFallbackFacingRef.current = false;
+    scanRequestRef.current += 1;
+    scanLockedRef.current = false;
+    setResolutionError(null);
 
     if (Platform.OS === 'web') {
       const isSecure =
@@ -250,37 +262,53 @@ export default function ScanScreen() {
   };
 
   const handleBarcodeScanned = (result: BarcodeScanningResult) => {
-    if (scannedData || !result?.data) return;
+    if (scanLockedRef.current || !isFocusedRef.current || !result?.data) return;
     const rawValue = result.data.trim();
     if (!rawValue) return;
 
+    scanLockedRef.current = true;
+    const requestId = ++scanRequestRef.current;
+    Vibration.vibrate(80);
     setScannedData(rawValue);
     setIsTorchOn(false);
     setIsResolvingMachine(true);
     setQrResolution(null);
+    setResolutionError(null);
 
     void resolveMachineByQrCode(rawValue, { preferOffline: !isOnline })
       .then((resolution) => {
+        if (!isFocusedRef.current || requestId !== scanRequestRef.current) return;
+        if (resolution.estado_resolucion === 'found' && resolution.maquina) {
+          setIsCameraActive(false);
+          setIsCameraReady(false);
+          router.push({
+            pathname: '/maintenance/[machineId]',
+            params: { machineId: resolution.maquina.id },
+          });
+          return;
+        }
         setQrResolution(resolution);
       })
+      .catch(() => {
+        if (!isFocusedRef.current || requestId !== scanRequestRef.current) return;
+        setResolutionError('No se pudo consultar el equipo. Intenta escanear nuevamente.');
+      })
       .finally(() => {
-        setIsResolvingMachine(false);
+        if (isFocusedRef.current && requestId === scanRequestRef.current) {
+          setIsResolvingMachine(false);
+        }
       });
   };
 
   const handleResetScan = () => {
+    scanRequestRef.current += 1;
+    scanLockedRef.current = false;
     setCameraError(null);
     setScannedData(null);
     setQrResolution(null);
+    setResolutionError(null);
     setIsResolvingMachine(false);
     setIsCameraActive(true);
-  };
-
-  const handleOpenChecklistForMachine = (machine: Machine) => {
-    router.push({
-      pathname: '/maintenance/[machineId]',
-      params: { machineId: machine.id },
-    });
   };
 
   const isPermissionBlocked =
@@ -554,7 +582,7 @@ export default function ScanScreen() {
           </View>
 
           {/* Tarjeta de resultado cuando se detecta un código QR */}
-          {scannedData ? (
+          {scannedData && (isResolvingMachine || qrResolution || resolutionError) ? (
             <View
               accessibilityLiveRegion="polite"
               className="mt-4 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm"
@@ -567,49 +595,21 @@ export default function ScanScreen() {
                       Identificando equipo...
                     </Text>
                     <Text className="mt-0.5 text-xs text-slate-500">
-                      Consultando inventario de máquinas por UUID
+                      Buscando el equipo para abrir su mantención
                     </Text>
                   </View>
                 </View>
-              ) : qrResolution?.estado_resolucion === 'found' && qrResolution.maquina ? (
-                <View className="flex-col gap-3">
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-row items-center gap-2">
-                      <CheckCircle2 size={18} color="#059669" strokeWidth={2.2} />
-                      <Text className="text-sm font-bold text-slate-900">Equipo identificado</Text>
-                    </View>
-
-                    {qrResolution.desde_cache ? (
-                      <View className="flex-row items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5">
-                        <WifiOff size={11} color="#d97706" strokeWidth={2.2} />
-                        <Text className="text-[10px] font-semibold text-amber-700">
-                          Caché local
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-
-                  <MachineCard
-                    machine={qrResolution.maquina}
-                    onPress={handleOpenChecklistForMachine}
-                  />
-
-                  <Pressable
-                    onPress={() => {
-                      if (qrResolution.maquina) {
-                        handleOpenChecklistForMachine(qrResolution.maquina);
-                      }
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Iniciar pauta de mantención para ${qrResolution.maquina.nombre}`}
-                    className="min-h-[46px] flex-row items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 active:bg-blue-700"
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <ClipboardList size={17} color="#ffffff" strokeWidth={2.2} />
-                    <Text className="text-xs font-bold text-white">
-                      {`Abrir pauta: ${qrResolution.maquina.categoria.nombre}`}
+              ) : resolutionError ? (
+                <View className="flex-row items-start gap-3">
+                  <AlertCircle size={20} color="#dc2626" />
+                  <View className="flex-1">
+                    <Text className="text-sm font-bold text-slate-900">
+                      No se pudo identificar el equipo
                     </Text>
-                  </Pressable>
+                    <Text className="mt-1 text-xs leading-relaxed text-slate-600">
+                      {resolutionError}
+                    </Text>
+                  </View>
                 </View>
               ) : qrResolution?.estado_resolucion === 'not_found' ? (
                 <View className="flex-row items-start gap-3">
@@ -627,8 +627,8 @@ export default function ScanScreen() {
                     </Text>
                     <Text className="mt-0.5 text-xs leading-relaxed text-slate-500">
                       {qrResolution.desde_cache
-                        ? 'No se encontró este UUID en la memoria local del dispositivo. Conéctate a internet para sincronizar equipos nuevos.'
-                        : 'El UUID escaneado no corresponde a ninguna máquina activa registrada.'}
+                        ? 'No se encontró este identificador en la memoria local del dispositivo. Conéctate a internet para sincronizar equipos nuevos.'
+                        : 'El identificador escaneado no corresponde a ninguna máquina activa registrada.'}
                     </Text>
                     <Text
                       selectable
@@ -653,7 +653,8 @@ export default function ScanScreen() {
                       Código QR no reconocido
                     </Text>
                     <Text className="mt-0.5 text-xs leading-relaxed text-slate-500">
-                      El código escaneado no contiene un UUID válido de máquina de Bowling Service.
+                      El código escaneado no contiene un identificador válido de máquina de Bowling
+                      Service.
                     </Text>
                     <Text
                       selectable

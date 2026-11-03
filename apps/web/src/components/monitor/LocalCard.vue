@@ -4,6 +4,13 @@ import type { ResumenLocal } from '../../types/monitor'
 
 defineProps<{ local: ResumenLocal }>()
 defineEmits<{ abrir: [id: string] }>()
+
+
+const formatoRecepcion = new Intl.DateTimeFormat('es-CL', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  timeZone: 'America/Santiago',
+})
 </script>
 
 <template>
@@ -20,14 +27,28 @@ defineEmits<{ abrir: [id: string] }>()
     </div>
     <span class="mt-4 block font-bold text-slate-900">{{ local.nombre }}</span>
     <p class="mt-1 text-sm text-slate-500">{{ local.direccion || 'Dirección no registrada' }}</p>
-    <div class="mt-5 border-t border-slate-100 pt-4">
+    <div class="mt-5 space-y-2 border-t border-slate-100 pt-4">
       <p class="text-sm text-slate-600">
-        <span class="font-bold text-slate-900">{{ local.activas }} / {{ local.total }}</span>
-        máquinas activas en el catálogo
+        Equipos registrados:
+        <strong class="text-slate-900">{{ local.total }}</strong>
+      </p>
+
+      <p v-if="local.activo === true" class="text-sm text-slate-600">
+        Máquinas activas:
+        <strong class="text-slate-900">{{ local.activas }}</strong>
+      </p>
+
+      <p class="text-sm text-slate-600">
+        Última mantención recibida:
+        <time v-if="local.ultima_recibida_at" :datetime="local.ultima_recibida_at" class="font-semibold text-slate-900">
+          {{ formatoRecepcion.format(new Date(local.ultima_recibida_at)) }}
+        </time>
+        <span v-else>Sin mantenciones recibidas</span>
       </p>
     </div>
     <span class="mt-4 flex items-center gap-2 text-sm font-semibold text-blue-600">
-      Ver información <ArrowTopRightOnSquareIcon class="size-4" aria-hidden="true" />
+      Ver información
+      <ArrowTopRightOnSquareIcon class="size-4" aria-hidden="true" />
     </span>
   </button>
 </template>

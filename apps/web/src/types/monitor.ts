@@ -3,12 +3,15 @@ export interface LocalMonitor {
   nombre: string
   direccion: string | null
   activo: boolean | null
+  ultima_recibida_at: string | null
 }
 
 export interface MaquinaMonitor {
   id: string
   local_id: string
   activo: boolean | null
+  nombre: string
+  codigo_interno: string
 }
 
 export interface ResumenLocal extends LocalMonitor {

@@ -50,3 +50,23 @@ export async function actualizarLocal(original: LocalRegistro, input: EditarLoca
   if (!esLocal(data)) throw new Error('No se pudo confirmar la respuesta. Cancela la edición y recarga antes de reintentar.')
   return data
 }
+export async function eliminarLocal(id: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('local')
+    .delete()
+    .eq('id', id)
+    .select('id')
+    .maybeSingle()
+
+  if (error?.code === '23503') {
+    throw new Error(
+      'No se puede eliminar el local porque tiene equipos, mantenciones u otros registros asociados.',
+    )
+  }
+
+  if (error) throw new Error('No se pudo eliminar el local. Recarga la ficha para comprobar su estado.')
+
+  if (!data) {
+    throw new Error('El local ya no está disponible o no tienes permiso para eliminarlo.')
+  }
+}

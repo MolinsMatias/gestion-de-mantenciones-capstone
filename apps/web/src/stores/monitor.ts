@@ -85,10 +85,15 @@ export const useMonitorStore = defineStore('monitor', () => {
     error.value = ''
     ultimaActualizacion.value = null
   }
+  function obtenerMaquinasActivasDelLocal(localId: string): MaquinaMonitor[] {
+    return maquinas.value.filter(
+      maquina => maquina.local_id === localId && maquina.activo === true,
+    )
+  }
 
   return {
     cargando, error, ultimaActualizacion, maquinasOperativas,
-    inspeccionesHoy, fechaChile, localesActivos, resumenLocales, cargar, limpiar, totalLocales, totalMaquinasActivas
+    inspeccionesHoy, fechaChile, localesActivos, resumenLocales, cargar, limpiar, totalLocales, totalMaquinasActivas, obtenerMaquinasActivasDelLocal
   }
 
 

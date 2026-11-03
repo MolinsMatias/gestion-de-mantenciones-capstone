@@ -11,16 +11,28 @@ function esBooleanoONulo(value: unknown): value is boolean | null {
   return typeof value === 'boolean' || value === null
 }
 
+
+
+
 function esLocal(value: unknown): value is LocalMonitor {
   return esObjeto(value) && typeof value.id === 'string' &&
     typeof value.nombre === 'string' &&
     (typeof value.direccion === 'string' || value.direccion === null) &&
     esBooleanoONulo(value.activo)
+    && (
+      value.ultima_recibida_at === null ||
+      (
+        typeof value.ultima_recibida_at === 'string' &&
+        Number.isFinite(Date.parse(value.ultima_recibida_at))
+      )
+    )
 }
 
 function esMaquina(value: unknown): value is MaquinaMonitor {
   return esObjeto(value) && typeof value.id === 'string' &&
-    typeof value.local_id === 'string' && esBooleanoONulo(value.activo)
+    typeof value.local_id === 'string' && esBooleanoONulo(value.activo) &&
+    typeof value.nombre === 'string' &&
+    typeof value.codigo_interno === 'string'
 }
 
 function esConteo(value: unknown): value is number {
@@ -58,6 +70,24 @@ async function obtenerPaginas<T>(
   }
 }
 
+async function obtenerLocalesMonitor(
+  signal: AbortSignal,
+): Promise<LocalMonitor[]> {
+  const { data, error } = await supabase
+    .rpc('obtener_locales_monitor')
+    .abortSignal(signal)
+
+  if (error) throw error
+
+  if (!Array.isArray(data) || !data.every(esLocal)) {
+    throw new Error('Respuesta de locales inválida.')
+  }
+
+  return data
+}
+
+
+
 export async function obtenerIndicadoresMonitor(
   signal: AbortSignal,
 ): Promise<IndicadoresMonitor> {
@@ -71,8 +101,8 @@ export async function obtenerIndicadoresMonitor(
 
 export async function obtenerDatosMonitor(signal: AbortSignal): Promise<DatosMonitor> {
   const [locales, maquinas, indicadores] = await Promise.all([
-    obtenerPaginas('local', 'id, nombre, direccion, activo', esLocal, signal),
-    obtenerPaginas('maquina', 'id, local_id, activo', esMaquina, signal),
+    obtenerLocalesMonitor(signal),
+    obtenerPaginas('maquina', 'id, local_id, activo, nombre, codigo_interno', esMaquina, signal),
     obtenerIndicadoresMonitor(signal),
   ])
   return {

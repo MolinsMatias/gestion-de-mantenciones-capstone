@@ -16,6 +16,7 @@ import CrearLocalModal from '../components/local/CrearLocalModal.vue'
 import LocalDetailModal from '../components/local/LocalDetailModal.vue'
 import { useMonitorStore } from '../stores/monitor'
 import { useFiltroLocales } from '../composables/useFiltroLocal'
+import VolumenMonitor from '../components/monitor/VolumenMonitor.vue'
 
 const monitor = useMonitorStore()
 const {
@@ -77,6 +78,23 @@ onMounted(() => {
   void monitor.cargar()
 })
 onUnmounted(() => monitor.limpiar())
+
+async function alEliminarLocal(): Promise<void> {
+  localSeleccionadoId.value = null
+  mensajeExito.value = 'Local eliminado correctamente.'
+  await monitor.cargar()
+}
+
+const resumenLocalSeleccionado = computed(() =>
+  resumenLocales.value.find(local => local.id === localSeleccionadoId.value) ?? null,
+)
+
+const maquinasActivasDelLocal = computed(() => {
+  const local = resumenLocalSeleccionado.value
+  return local?.activo === true
+    ? monitor.obtenerMaquinasActivasDelLocal(local.id)
+    : []
+})
 </script>
 
 <template>
@@ -98,12 +116,9 @@ onUnmounted(() => monitor.limpiar())
   </p>
 
   <template v-if="ultimaActualizacion">
-    <section aria-label="Indicadores generales" class="mb-8 grid gap-4 md:grid-cols-3">
-      <KpiCard label="Máquinas operativas" :value="maquinasOperativas" :total="totalMaquinasActivas"
-        :icon="CheckCircleIcon" principal />
-      <KpiCard label="Inspecciones realizadas hoy" :value="inspeccionesHoy" :icon="ClipboardDocumentCheckIcon" />
-      <KpiCard label="Locales activos" :value="localesActivos" :total="totalLocales" :icon="BuildingStorefrontIcon" />
-    </section>
+
+    <VolumenMonitor :actualizacion="ultimaActualizacion" />
+
 
     <section aria-labelledby="locales-heading">
       <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
@@ -142,5 +157,6 @@ onUnmounted(() => monitor.limpiar())
   <CrearLocalModal v-if="mostrarCrearLocal" @cerrar="mostrarCrearLocal = false" @creado="alCrearLocal" />
 
   <LocalDetailModal v-if="localSeleccionadoId" :key="localSeleccionadoId" :local-id="localSeleccionadoId"
-    @cerrar="localSeleccionadoId = null" @actualizado="alActualizarLocal" />
+    :maquinas-activas="maquinasActivasDelLocal" @cerrar="localSeleccionadoId = null"
+    @actualizado="alActualizarLocal" @eliminado="alEliminarLocal" />
 </template>

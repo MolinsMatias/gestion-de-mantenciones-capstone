@@ -28,6 +28,11 @@ defineEmits<{ salir: [] }>()
         <CubeIcon class="size-5" aria-hidden="true" />
         Máquinas y QR
       </RouterLink>
+      <RouterLink to="/pautas" class="mt-2 flex items-center gap-3 rounded-xl px-4 py-3 font-semibold"
+        active-class="bg-blue-600 shadow-lg shadow-blue-950/30">
+        <CubeIcon class="size-5" aria-hidden="true" />
+        Pautas de mantenimiento
+      </RouterLink>
     </nav>
     <div class="mt-6 lg:mt-auto">
       <p v-if="error" role="alert" class="mb-3 px-2 text-sm text-red-300">{{ error }}</p>

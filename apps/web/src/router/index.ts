@@ -25,6 +25,7 @@ const router = createRouter({
           name: 'maquinas',
           component: () => import('../views/MaquinaView.vue'),
         },
+        { path: 'pautas', name: 'pautas', component: () => import('../views/PautaView.vue') },
       ],
     },
   ],

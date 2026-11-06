@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   BuildingStorefrontIcon,
@@ -18,6 +18,7 @@ import CargaSeccion from '../components/layout/CargaSeccion.vue'
 import { useMonitorStore } from '../stores/monitor'
 import { useFiltroLocales } from '../composables/useFiltroLocal'
 import VolumenMonitor from '../components/monitor/VolumenMonitor.vue'
+import { useCargaInicial } from '../composables/useCargaInicial'
 
 const monitor = useMonitorStore()
 const {
@@ -35,6 +36,11 @@ const horaActualizacion = computed(() =>
     hour: '2-digit', minute: '2-digit', timeZone: 'America/Santiago',
   }),
 )
+
+const mostrandoCargaInicial = useCargaInicial(async () => {
+  monitor.limpiar()
+  await monitor.cargar()
+})
 
 const {
   busqueda: busquedaLocales,
@@ -74,10 +80,7 @@ async function alActualizarLocal(): Promise<void> {
   await monitor.cargar()
 }
 
-onMounted(() => {
-  monitor.limpiar()
-  void monitor.cargar()
-})
+
 onUnmounted(() => monitor.limpiar())
 
 async function alEliminarLocal(): Promise<void> {
@@ -99,26 +102,23 @@ const maquinasActivasDelLocal = computed(() => {
 </script>
 
 <template>
-  <MonitorHeader :cargando="cargando" @actualizar="monitor.cargar()" @crear-local="abrirCrearLocal" />
+  <MonitorHeader :cargando="cargando || mostrandoCargaInicial" @actualizar="monitor.cargar()"
+    @crear-local="abrirCrearLocal" />
 
   <p v-if="mensajeExito" role="status"
     class="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
     {{ mensajeExito }}
   </p>
 
-  <div v-if="error" role="alert"
+  <div v-if="error && !mostrandoCargaInicial" role="alert"
     class="mb-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
     <ExclamationTriangleIcon class="size-5 shrink-0" aria-hidden="true" />
     {{ error }}
   </div>
 
-  <CargaSeccion
-    v-if="cargando && !ultimaActualizacion"
-    variante="tarjetas"
-    mensaje="Cargando locales e indicadores…"
-  />
+  <CargaSeccion v-if="mostrandoCargaInicial" variante="tarjetas" mensaje="Cargando locales e indicadores…" />
 
-  <template v-if="ultimaActualizacion">
+  <template v-else-if="ultimaActualizacion">
 
     <VolumenMonitor :actualizacion="ultimaActualizacion" />
 
@@ -160,6 +160,6 @@ const maquinasActivasDelLocal = computed(() => {
   <CrearLocalModal v-if="mostrarCrearLocal" @cerrar="mostrarCrearLocal = false" @creado="alCrearLocal" />
 
   <LocalDetailModal v-if="localSeleccionadoId" :key="localSeleccionadoId" :local-id="localSeleccionadoId"
-    :maquinas-activas="maquinasActivasDelLocal" @cerrar="localSeleccionadoId = null"
-    @actualizado="alActualizarLocal" @eliminado="alEliminarLocal" />
+    :maquinas-activas="maquinasActivasDelLocal" @cerrar="localSeleccionadoId = null" @actualizado="alActualizarLocal"
+    @eliminado="alEliminarLocal" />
 </template>

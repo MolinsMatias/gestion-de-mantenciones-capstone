@@ -12,11 +12,8 @@ withDefaults(defineProps<{
   <section class="my-4">
     <p role="status" class="mb-3 text-sm text-slate-600">{{ mensaje }}</p>
 
-    <div
-      v-if="variante === 'tarjetas'"
-      aria-hidden="true"
-      class="grid gap-4 motion-safe:animate-pulse sm:grid-cols-2 xl:grid-cols-3"
-    >
+    <div v-if="variante === 'tarjetas'" aria-hidden="true"
+      class="grid gap-4 motion-safe:animate-pulse sm:grid-cols-2 xl:grid-cols-3">
       <div v-for="n in 6" :key="n" class="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">
         <div class="h-9 w-9 rounded-xl bg-blue-100" />
         <div class="h-4 w-3/5 rounded bg-slate-200" />

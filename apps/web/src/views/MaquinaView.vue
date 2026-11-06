@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onUnmounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { ArrowPathIcon, ExclamationTriangleIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import { useMaquinasStore } from '../stores/maquina'
@@ -13,6 +13,7 @@ import MachineEditModal from '../components/maquina/MachineEditModal.vue'
 import CargaSeccion from '../components/layout/CargaSeccion.vue'
 import { actualizarMaquina, type CambiosMaquina, eliminarMaquina } from '../services/maquina.service'
 import MachineDeleteModal from '../components/maquina/MachineDeleteModal.vue'
+import { useCargaInicial } from '../composables/useCargaInicial'
 
 
 const catalogo = useMaquinasStore()
@@ -123,7 +124,10 @@ async function confirmarEliminacion(): Promise<void> {
 }
 
 
-onMounted(() => { catalogo.limpiar(); void catalogo.cargar() })
+const mostrandoCargaInicial = useCargaInicial(async () => {
+  catalogo.limpiar()
+  await catalogo.cargar()
+})
 onUnmounted(() => catalogo.limpiar())
 
 </script>
@@ -156,12 +160,8 @@ onUnmounted(() => catalogo.limpiar())
   <MaquinasFilters v-model:busqueda="busqueda" v-model:local-id="localId" v-model:categoria-id="categoriaId"
     v-model:estado="estado" :locales="locales" :categorias="categorias" :deshabilitado="cargando && !cargado"
     @limpiar="catalogo.limpiarFiltros()" />
-  <CargaSeccion
-    v-if="cargando && !cargado"
-    variante="tabla"
-    mensaje="Cargando máquinas…"
-  />
-  <template v-if="cargado">
+  <CargaSeccion v-if="mostrandoCargaInicial" variante="tabla" mensaje="Cargando máquinas…" />
+  <template v-else-if="cargado">
     <p class="mb-4 text-sm text-slate-500" role="status">{{ maquinasFiltradas.length }} de {{ total }} máquinas</p>
     <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
       <section aria-label="Listado de máquinas"

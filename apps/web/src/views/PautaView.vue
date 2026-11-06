@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Dialog from 'primevue/dialog'
@@ -7,6 +7,7 @@ import CargaSeccion from '../components/layout/CargaSeccion.vue'
 import PautaDetalle from '../components/pauta/PautaDetalle.vue'
 import PautaGestionModal from '../components/pauta/PautaGestionModal.vue'
 import { obtenerCatalogoPautas, type Pauta, type CategoriaPauta, type AccionPauta } from '../services/pauta.service'
+import { useCargaInicial } from '../composables/useCargaInicial'
 
 const pautas = ref<Pauta[]>([])
 const categorias = ref<CategoriaPauta[]>([])
@@ -82,7 +83,7 @@ async function cargar() {
 function verPauta(id: string) {
   seleccionadaId.value = id
 }
-onMounted(cargar)
+const mostrandoCargaInicial = useCargaInicial(cargar)
 onUnmounted(() => solicitud?.abort())
 </script>
 
@@ -131,11 +132,7 @@ onUnmounted(() => solicitud?.abort())
       No se pudo cargar el catálogo. Comprueba los permisos de lectura o pulsa Actualizar.
     </p>
 
-    <CargaSeccion
-      v-if="cargando && !cargado"
-      variante="tabla"
-      mensaje="Cargando pautas…"
-    />
+    <CargaSeccion v-if="mostrandoCargaInicial" variante="tabla" mensaje="Cargando pautas…" />
 
     <div v-else class="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
       <DataTable v-model:first="primeraFila" :value="filtradas" data-key="id" :loading="cargando" paginator :rows="10"

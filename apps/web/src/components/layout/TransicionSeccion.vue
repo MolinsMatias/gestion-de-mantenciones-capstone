@@ -2,37 +2,39 @@
 import { onUnmounted, ref } from 'vue'
 import { RouterView, useRouter, type RouteLocationNormalized } from 'vue-router'
 
+const UMBRAL_PROGRESO_MS = 150
+
 const router = useRouter()
 const navegando = ref(false)
 const mostrarProgreso = ref(false)
 let pendiente: RouteLocationNormalized | undefined
-let temporizador: ReturnType<typeof setTimeout> | undefined
+let temporizadorInicio: ReturnType<typeof setTimeout> | undefined
 
-function limpiar(): void {
-  clearTimeout(temporizador)
-  temporizador = undefined
+function terminarNavegacion(): void {
+  clearTimeout(temporizadorInicio)
   pendiente = undefined
   navegando.value = false
   mostrarProgreso.value = false
 }
 
 const quitarInicio = router.beforeEach((destino, origen) => {
-  // Los cambios de búsqueda o hash no animan ni remontan la sección.
   if (destino.path === origen.path) {
-    limpiar()
+    terminarNavegacion()
     return
   }
 
-  clearTimeout(temporizador)
+  clearTimeout(temporizadorInicio)
   pendiente = destino
   navegando.value = true
-  temporizador = setTimeout(() => {
-    if (pendiente === destino) mostrarProgreso.value = true
-  }, 150)
+
+  temporizadorInicio = setTimeout(() => {
+    if (pendiente !== destino) return
+    mostrarProgreso.value = true
+  }, UMBRAL_PROGRESO_MS)
 })
 
 function finalizar(destino: RouteLocationNormalized): void {
-  if (pendiente === destino) limpiar()
+  if (pendiente === destino) terminarNavegacion()
 }
 
 const quitarFin = router.afterEach(finalizar)
@@ -42,7 +44,7 @@ onUnmounted(() => {
   quitarInicio()
   quitarFin()
   quitarError()
-  limpiar()
+  clearTimeout(temporizadorInicio)
 })
 </script>
 
@@ -55,7 +57,7 @@ onUnmounted(() => {
     </RouterView>
   </div>
 
-  <p class="sr-only" role="status">{{ mostrarProgreso ? 'Cargando sección…' : '' }}</p>
+  <p class="sr-only" role="status">{{ mostrarProgreso && navegando ? 'Cargando sección…' : '' }}</p>
   <div v-if="mostrarProgreso" class="progreso-seccion" aria-hidden="true">
     <span />
   </div>
@@ -90,13 +92,28 @@ onUnmounted(() => {
 }
 
 @keyframes progreso-seccion {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(286%); }
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(286%);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .entrada-seccion-enter-active { transition: none; }
-  .entrada-seccion-enter-from { opacity: 1; transform: none; }
-  .progreso-seccion span { width: 100%; animation: none; }
+  .entrada-seccion-enter-active {
+    transition: none;
+  }
+
+  .entrada-seccion-enter-from {
+    opacity: 1;
+    transform: none;
+  }
+
+  .progreso-seccion span {
+    width: 100%;
+    animation: none;
+  }
 }
 </style>

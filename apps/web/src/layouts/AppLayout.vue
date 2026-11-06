@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { watch } from 'vue'
-import { RouterView, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import AppSidebar from '../components/layout/AppSidebar.vue'
+import TransicionSeccion from '../components/layout/TransicionSeccion.vue'
 import { useAuthStore } from '../stores/auth'
 import { useMonitorStore } from '../stores/monitor'
 
@@ -32,7 +33,9 @@ async function salir(): Promise<void> {
   <div class="min-h-screen bg-slate-100 lg:flex">
     <AppSidebar :saliendo="auth.cargando" :error="auth.error" @salir="salir" />
     <main class="min-w-0 flex-1 p-5 sm:p-8 lg:ml-64 lg:p-10">
-      <div class="mx-auto max-w-7xl"><RouterView /></div>
+      <div class="mx-auto max-w-7xl">
+        <TransicionSeccion />
+      </div>
     </main>
   </div>
 </template>

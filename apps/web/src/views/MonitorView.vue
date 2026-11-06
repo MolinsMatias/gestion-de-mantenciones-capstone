@@ -14,6 +14,7 @@ import MonitorNotes from '../components/monitor/MonitorNotes.vue'
 import LocalesFilters from '../components/monitor/LocalFilter.vue'
 import CrearLocalModal from '../components/local/CrearLocalModal.vue'
 import LocalDetailModal from '../components/local/LocalDetailModal.vue'
+import CargaSeccion from '../components/layout/CargaSeccion.vue'
 import { useMonitorStore } from '../stores/monitor'
 import { useFiltroLocales } from '../composables/useFiltroLocal'
 import VolumenMonitor from '../components/monitor/VolumenMonitor.vue'
@@ -111,9 +112,11 @@ const maquinasActivasDelLocal = computed(() => {
     {{ error }}
   </div>
 
-  <p v-if="cargando && !ultimaActualizacion" role="status" class="py-12 text-center text-slate-500">
-    Cargando el monitor…
-  </p>
+  <CargaSeccion
+    v-if="cargando && !ultimaActualizacion"
+    variante="tarjetas"
+    mensaje="Cargando locales e indicadores…"
+  />
 
   <template v-if="ultimaActualizacion">
 

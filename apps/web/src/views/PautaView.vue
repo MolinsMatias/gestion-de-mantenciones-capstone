@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Dialog from 'primevue/dialog'
+import CargaSeccion from '../components/layout/CargaSeccion.vue'
 import PautaDetalle from '../components/pauta/PautaDetalle.vue'
 import PautaGestionModal from '../components/pauta/PautaGestionModal.vue'
 import { obtenerCatalogoPautas, type Pauta, type CategoriaPauta, type AccionPauta } from '../services/pauta.service'
@@ -10,6 +11,7 @@ import { obtenerCatalogoPautas, type Pauta, type CategoriaPauta, type AccionPaut
 const pautas = ref<Pauta[]>([])
 const categorias = ref<CategoriaPauta[]>([])
 const cargando = ref(false)
+const cargado = ref(false)
 const error = ref(false)
 const busqueda = ref('')
 const categoriaId = ref('')
@@ -67,6 +69,7 @@ async function cargar() {
     if (actual.signal.aborted) return
     pautas.value = resultado.pautas
     categorias.value = resultado.categorias
+    cargado.value = true
     primeraFila.value = 0
     if (!seleccionada.value) seleccionadaId.value = null
   } catch {
@@ -128,7 +131,13 @@ onUnmounted(() => solicitud?.abort())
       No se pudo cargar el catálogo. Comprueba los permisos de lectura o pulsa Actualizar.
     </p>
 
-    <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
+    <CargaSeccion
+      v-if="cargando && !cargado"
+      variante="tabla"
+      mensaje="Cargando pautas…"
+    />
+
+    <div v-else class="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
       <DataTable v-model:first="primeraFila" :value="filtradas" data-key="id" :loading="cargando" paginator :rows="10"
         :rows-per-page-options="[10, 25, 50]" :table-style="{ minWidth: '38rem' }">
         <template #empty>{{ error ? 'Catálogo no disponible.' : 'No hay pautas que coincidan.' }}</template>

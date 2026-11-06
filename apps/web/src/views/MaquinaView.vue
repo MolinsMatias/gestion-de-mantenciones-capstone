@@ -10,6 +10,7 @@ import CrearMaquinaModal from '../components/maquina/CrearMaquinaModal.vue'
 import CambiarLocalModal from '../components/maquina/CambiarLocalModal.vue'
 import type { MaquinaCreada } from '../types/crear-maquina'
 import MachineEditModal from '../components/maquina/MachineEditModal.vue'
+import CargaSeccion from '../components/layout/CargaSeccion.vue'
 import { actualizarMaquina, type CambiosMaquina, eliminarMaquina } from '../services/maquina.service'
 import MachineDeleteModal from '../components/maquina/MachineDeleteModal.vue'
 
@@ -155,7 +156,11 @@ onUnmounted(() => catalogo.limpiar())
   <MaquinasFilters v-model:busqueda="busqueda" v-model:local-id="localId" v-model:categoria-id="categoriaId"
     v-model:estado="estado" :locales="locales" :categorias="categorias" :deshabilitado="cargando && !cargado"
     @limpiar="catalogo.limpiarFiltros()" />
-  <p v-if="cargando && !cargado" role="status" class="py-12 text-center text-slate-500">Cargando máquinas…</p>
+  <CargaSeccion
+    v-if="cargando && !cargado"
+    variante="tabla"
+    mensaje="Cargando máquinas…"
+  />
   <template v-if="cargado">
     <p class="mb-4 text-sm text-slate-500" role="status">{{ maquinasFiltradas.length }} de {{ total }} máquinas</p>
     <div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">

@@ -30,7 +30,7 @@ async function alCompletar(accion: AccionPauta): Promise<void> {
   seleccionadaId.value = null
   gestion.value = null
   mensaje.value = accion === 'crear' ? 'Pauta creada.'
-    : accion === 'editar' ? 'Pauta actualizada.' : 'Pauta eliminada.'
+    : accion === 'editar' ? 'Pauta actualizada.' : 'Pauta retirada del catálogo.'
   await cargar()
 }
 
@@ -169,7 +169,7 @@ onUnmounted(() => solicitud?.abort())
           <button type="button" :disabled="cargando"
             class="rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-50"
             @click="abrirGestion('eliminar', seleccionada)">
-            Eliminar pauta
+            Retirar pauta
           </button>
         </div>
       </template>

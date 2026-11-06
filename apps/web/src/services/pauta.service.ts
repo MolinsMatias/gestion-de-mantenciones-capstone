@@ -46,6 +46,7 @@ export async function obtenerCatalogoPautas(signal: AbortSignal) {
   const [pautas, categorias] = await Promise.all([
     leerPaginas<Pauta>((a, b) => supabase.from('pauta')
       .select('id,categoria_id,nombre,descripcion,version,activo')
+      .is('eliminado_at', null)
       .order('nombre').order('version', { ascending: false }).order('id')
       .range(a, b).abortSignal(signal), signal),
     leerPaginas<CategoriaPauta>((a, b) => supabase.from('categoria_maquina')

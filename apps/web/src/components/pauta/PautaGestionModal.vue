@@ -13,7 +13,7 @@ const props = defineProps<{
   categorias: CategoriaPauta[]
 }>()
 const emit = defineEmits<{ cerrar: []; completado: [accion: AccionPauta] }>()
-const encabezados = { crear: 'Crear pauta', editar: 'Editar pauta', eliminar: 'Eliminar pauta' }
+const encabezados = { crear: 'Crear pauta', editar: 'Editar pauta', eliminar: 'Retirar pauta' }
 const campo = 'mt-1 w-full rounded-lg border border-slate-300 bg-white p-2 text-slate-900'
 const nuevoItem = (): ItemPautaBorrador => ({
   descripcion: '', instrucciones: '', obligatorio: true, permite_no_aplica: false,
@@ -97,8 +97,8 @@ async function guardar(): Promise<void> {
     @update:visible="visible => { if (!visible) cerrar() }">
     <form class="space-y-4" :aria-busy="guardando || cargando" @submit.prevent="guardar">
       <p v-if="accion === 'eliminar'" class="text-sm text-slate-700">
-        ¿Eliminar <strong>{{ pauta?.nombre }}</strong> (versión {{ pauta?.version }})?
-        Se borrarán sus secciones e ítems. Si ya tiene historial asociado, la eliminación se rechazará.
+        ¿Retirar <strong>{{ pauta?.nombre }}</strong> (versión {{ pauta?.version }})?
+        Se ocultará del catálogo. Sus secciones, ítems y mantenciones se conservarán.
       </p>
       <p v-else-if="cargando" role="status">Cargando secciones e ítems…</p>
 
@@ -172,7 +172,7 @@ async function guardar(): Promise<void> {
         <button type="submit" :disabled="guardando || cargando || cargaFallida"
           class="rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           :class="accion === 'eliminar' ? 'bg-red-700' : 'bg-blue-700'">
-          {{ guardando ? 'Procesando…' : accion === 'eliminar' ? 'Sí, eliminar' : 'Guardar pauta' }}
+          {{ guardando ? 'Procesando…' : accion === 'eliminar' ? 'Sí, retirar' : 'Guardar pauta' }}
         </button>
       </div>
     </form>

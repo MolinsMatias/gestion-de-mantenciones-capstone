@@ -29,6 +29,7 @@ async function leerOpciones(
     let consulta = supabase.from(tabla).select('id, nombre').order('id')
       .range(desde, desde + tamanio - 1)
     if (tabla !== 'marca') consulta = consulta.eq('activo', true)
+    if (tabla === 'categoria_maquina') consulta = consulta.is('archivada_at', null)
     const { data, error } = await consulta.abortSignal(signal)
     if (error) throw new Error('No se pudieron cargar las opciones del formulario. Revisa tu conexión y permisos.')
     const pagina: unknown = data

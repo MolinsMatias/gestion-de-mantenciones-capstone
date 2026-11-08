@@ -2,6 +2,7 @@
 import { onUnmounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { ArrowPathIcon, ExclamationTriangleIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import CategoriasMaquinaModal from '../components/maquina/CategoriasMaquinaModal.vue'
 import CargaSeccion from '../components/layout/CargaSeccion.vue'
 import MaquinaFichaDatos from '../components/maquina/MaquinaFichaDatos.vue'
 import type { MaquinaDetalle } from '../types/maquina'
@@ -14,11 +15,9 @@ import MachineDetailPanel from '../components/maquina/MaquinaDetallePanel.vue'
 import CrearMaquinaModal from '../components/maquina/CrearMaquinaModal.vue'
 import type { MaquinaCreada } from '../types/crear-maquina'
 
-
-
-
 const catalogo = useMaquinasStore()
 const mostrarCrearMaquina = ref(false)
+const mostrarCategorias = ref(false)
 const mensajeExito = ref('')
 
 function abrirCrearMaquina(): void {
@@ -85,6 +84,9 @@ onUnmounted(() => catalogo.limpiar())
         <ArrowPathIcon class="size-5" :class="{ 'animate-spin': cargando }" aria-hidden="true" />{{ cargando ?
           'Actualizando…' : 'Actualizar' }}
       </button>
+      <button type="button" :disabled="cargando || mostrandoCargaInicial"
+        class="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        @click="mostrarCategorias = true">Gestionar categorías</button>
       <button type="button" :disabled="cargando || mostrandoCargaInicial" @click="abrirCrearMaquina"
         class="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:opacity-50">
         <PlusIcon class="size-5" aria-hidden="true" />Agregar máquina
@@ -151,5 +153,7 @@ onUnmounted(() => catalogo.limpiar())
       </div>
     </div>
   </dialog>
+  <CategoriasMaquinaModal v-if="mostrarCategorias" @cerrar="mostrarCategorias = false"
+    @actualizado="catalogo.cargar()" />
   <CrearMaquinaModal v-if="mostrarCrearMaquina" @cerrar="mostrarCrearMaquina = false" @creada="alCrearMaquina" />
 </template>

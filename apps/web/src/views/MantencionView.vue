@@ -4,15 +4,27 @@ import MantencionDetalle from '../components/mantencion/MantencionDetalle.vue'
 import CargaSeccion from '../components/layout/CargaSeccion.vue'
 import { useCargaInicial } from '../composables/useCargaInicial'
 import {
-  etiquetaMantencion, fechaMantencion, obtenerLocalesMantenciones, obtenerMantenciones, POR_PAGINA,
-  type FilaMantencion, type LocalMantencion,
+  etiquetaMantencion, fechaMantencion, obtenerLocalesMantenciones, obtenerMaquinasMantenciones, obtenerMaquinasDelHistorialLocal, obtenerMantenciones, POR_PAGINA,
+  type FilaMantencion, type LocalMantencion, type MaquinaMantencion,
 } from '../services/mantencion.service'
 
 const filas = ref<FilaMantencion[]>([])
 const locales = ref<LocalMantencion[]>([])
+const maquinas = ref<MaquinaMantencion[]>([])
 const seleccion = ref<FilaMantencion | null>(null)
 const localId = ref('')
 const tipo = ref('')
+const estado = ref('')
+const maquinaId = ref('')
+const historialLocal = ref<{ localId: string; ids: Set<string> } | null>(null)
+const opcionesMaquinaListas = computed(() => !localId.value || historialLocal.value?.localId === localId.value)
+const maquinasDisponibles = computed(() => {
+  if (!localId.value) return maquinas.value
+  const historial = historialLocal.value
+  return historial?.localId === localId.value
+    ? maquinas.value.filter(maquina => historial.ids.has(maquina.id))
+    : []
+})
 const pagina = ref(1)
 const total = ref(0)
 const cargando = ref(false)
@@ -21,16 +33,23 @@ const error = ref('')
 const paginas = computed(() => Math.max(1, Math.ceil(total.value / POR_PAGINA)))
 let controller: AbortController | undefined
 
-async function cargar(destino: number, filtros = { localId: localId.value, tipo: tipo.value }, recargarLocales = false) {
+async function cargar(destino: number, filtros = { localId: localId.value, maquinaId: maquinaId.value, tipo: tipo.value, estado: estado.value }, recargarCatalogos = false) {
   controller?.abort()
   const actual = new AbortController()
   controller = actual
   cargando.value = true
   error.value = ''
   try {
-    const opciones = recargarLocales || !cargado.value
-      ? await obtenerLocalesMantenciones(actual.signal)
-      : locales.value
+    const recargar = recargarCatalogos || !cargado.value
+    const local = filtros.localId
+    const historial = historialLocal.value
+    const [opciones, equipos, ids] = await Promise.all([
+      recargar ? obtenerLocalesMantenciones(actual.signal) : locales.value,
+      recargar ? obtenerMaquinasMantenciones(actual.signal) : maquinas.value,
+      !local ? null
+        : !recargar && historial?.localId === local ? historial.ids
+          : obtenerMaquinasDelHistorialLocal(local, actual.signal),
+    ])
     let nuevaPagina = destino
     let resultado = await obtenerMantenciones({ ...filtros, pagina: nuevaPagina }, opciones, actual.signal)
     const ultima = Math.max(1, Math.ceil(resultado.total / POR_PAGINA))
@@ -40,6 +59,8 @@ async function cargar(destino: number, filtros = { localId: localId.value, tipo:
     }
     if (actual.signal.aborted) return
     locales.value = opciones
+    maquinas.value = equipos
+    historialLocal.value = ids ? { localId: local, ids } : null
     filas.value = resultado.filas
     total.value = resultado.total
     pagina.value = nuevaPagina
@@ -53,8 +74,10 @@ async function cargar(destino: number, filtros = { localId: localId.value, tipo:
   }
 }
 
-watch([localId, tipo], ([nuevoLocal, nuevoTipo]) => {
-  void cargar(1, { localId: nuevoLocal, tipo: nuevoTipo })
+// El filtro de máquina anterior no debe aplicarse al cambiar de recinto.
+watch(localId, () => { maquinaId.value = '' }, { flush: 'sync' })
+watch([localId, maquinaId, tipo, estado], () => {
+  void cargar(1)
 })
 
 const mostrandoCargaInicial = useCargaInicial(() => cargar(1))
@@ -86,16 +109,40 @@ onScopeDispose(() => controller?.abort())
               <option v-for="local in locales" :key="local.id" :value="local.id">{{ local.nombre }}</option>
             </select>
           </label>
+          <label class="grid min-w-0 gap-1 text-sm font-medium text-slate-700">
+            Máquina
+            <select v-model="maquinaId" :disabled="!opcionesMaquinaListas"
+              class="w-full max-w-72 rounded-lg border border-slate-300 bg-white p-2 disabled:opacity-60">
+              <option value="">{{ !opcionesMaquinaListas
+                ? (cargando ? 'Cargando máquinas…' : 'Opciones no disponibles')
+                : localId && !maquinasDisponibles.length ? 'Sin máquinas en este historial' : 'Todas las máquinas' }}
+              </option>
+              <option v-for="maquina in maquinasDisponibles" :key="maquina.id" :value="maquina.id">
+                {{ maquina.nombre }} · {{ maquina.codigo_interno }}
+              </option>
+            </select>
+          </label>
           <label class="grid gap-1 text-sm font-medium text-slate-700">
             Tipo
             <select v-model="tipo" class="rounded-lg border border-slate-300 bg-white p-2">
               <option value="">Todos los tipos</option>
               <option value="inspeccion">Inspección</option>
               <option value="preventiva">Preventiva</option>
+              <option value="correctiva">Correctiva</option>
             </select>
           </label>
-          <button v-if="localId || tipo" type="button"
-            class="px-2 py-2 text-sm font-semibold text-blue-700 hover:underline" @click="localId = ''; tipo = ''">
+          <label class="grid gap-1 text-sm font-medium text-slate-700">
+            Estado final del equipo
+            <select v-model="estado" class="rounded-lg border border-slate-300 bg-white p-2">
+              <option value="">Todos los estados</option>
+              <option value="operativa">Operativa</option>
+              <option value="operativa_con_observaciones">Operativa con observaciones</option>
+              <option value="fuera_de_servicio">Fuera de servicio</option>
+            </select>
+          </label>
+          <button v-if="localId || maquinaId || tipo || estado" type="button"
+            class="px-2 py-2 text-sm font-semibold text-blue-700 hover:underline"
+            @click="localId = ''; maquinaId = ''; tipo = ''; estado = ''">
             Limpiar filtros
           </button>
           <p role="status" class="py-2 text-sm text-slate-500">{{ cargando ? 'Buscando mantenciones…' : '' }}</p>

@@ -10,7 +10,7 @@ export interface Pauta {
   eliminado_at: string | null
   borrador_version: boolean
 }
-export interface CategoriaPauta { id: string; nombre: string }
+export interface CategoriaPauta { id: string; nombre: string; activo?: boolean | null; archivada_at?: string | null }
 export interface ItemPauta {
   id: string
   seccion_id: string
@@ -51,7 +51,7 @@ export async function obtenerCatalogoPautas(signal: AbortSignal) {
       .order('nombre').order('version', { ascending: false }).order('id')
       .range(a, b).abortSignal(signal), signal),
     leerPaginas<CategoriaPauta>((a, b) => supabase.from('categoria_maquina')
-      .select('id,nombre').order('nombre').order('id').range(a, b).abortSignal(signal), signal),
+      .select('id,nombre,activo,archivada_at').order('nombre').order('id').range(a, b).abortSignal(signal), signal),
   ])
   return { pautas, categorias }
 }

@@ -11,7 +11,7 @@ interface Mantencion {
   finalizada_at: string | null
 }
 export interface LocalMantencion { id: string; nombre: string }
-interface MaquinaMantencion { id: string; nombre: string; codigo_interno: string }
+export interface MaquinaMantencion { id: string; nombre: string; codigo_interno: string }
 export interface FilaMantencion extends Mantencion {
   local: LocalMantencion | null
   maquina: MaquinaMantencion | null
@@ -32,8 +32,24 @@ export async function obtenerLocalesMantenciones(signal: AbortSignal): Promise<L
   }
 }
 
+export async function obtenerMaquinasMantenciones(signal: AbortSignal): Promise<MaquinaMantencion[]> {
+  // El historial incluye máquinas retiradas y máquinas que cambiaron de local.
+  return leerDetallePaginado<MaquinaMantencion>((desde, hasta) => supabase.from('maquina')
+    .select('id,nombre,codigo_interno').order('nombre').order('codigo_interno').order('id')
+    .range(desde, hasta).abortSignal(signal))
+}
+
+export async function obtenerMaquinasDelHistorialLocal(localId: string, signal: AbortSignal): Promise<Set<string>> {
+  const filas = await leerDetallePaginado<{ maquina_id: string }>((desde, hasta) => supabase.from('mantencion')
+    .select('maquina_id')
+    .eq('local_id', localId).eq('estado', 'enviada')
+    .not('finalizada_at', 'is', null).not('maquina_id', 'is', null)
+    .order('id').range(desde, hasta).abortSignal(signal))
+  return new Set(filas.map(fila => fila.maquina_id))
+}
+
 export async function obtenerMantenciones(
-  filtros: { pagina: number; localId: string; tipo: string },
+  filtros: { pagina: number; localId: string; maquinaId?: string; tipo: string, estado: string },
   locales: LocalMantencion[],
   signal: AbortSignal,
 ): Promise<{ filas: FilaMantencion[]; total: number }> {
@@ -42,7 +58,9 @@ export async function obtenerMantenciones(
     .select('id,local_id,maquina_id,tipo,estado,estado_equipo_final,recibida_at,finalizada_at', { count: 'exact' })
     .eq('estado', 'enviada').not('finalizada_at', 'is', null)
   if (filtros.localId) consulta = consulta.eq('local_id', filtros.localId)
+  if (filtros.maquinaId) consulta = consulta.eq('maquina_id', filtros.maquinaId)
   if (filtros.tipo) consulta = consulta.eq('tipo', filtros.tipo)
+  if (filtros.estado) consulta = consulta.eq('estado_equipo_final', filtros.estado)
   const { data, count, error } = await consulta
     .order('finalizada_at', { ascending: false }).order('id', { ascending: false })
     .range(desde, desde + POR_PAGINA - 1).abortSignal(signal)
@@ -136,7 +154,7 @@ export async function obtenerDetalleMantencion(id: string, signal: AbortSignal) 
   const persona = tecnico?.data
   const nombreTecnico = persona
     ? [persona.nombre, persona.segundo_nombre, persona.apellido_paterno, persona.apellido_materno]
-        .filter(Boolean).join(' ')
+      .filter(Boolean).join(' ')
     : null
   return {
     registro,

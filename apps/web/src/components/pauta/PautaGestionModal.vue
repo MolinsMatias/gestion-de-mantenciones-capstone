@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Dialog from 'primevue/dialog'
 import {
   gestionarPauta, gestionarVersionPauta, obtenerSeccionesPauta,
@@ -28,6 +28,9 @@ const borrador = ref<PautaBorrador>({
   activo: props.pauta?.activo ?? true,
   secciones: props.accion === 'crear' ? [nuevaSeccion()] : [],
 })
+const categoriasEditables = computed(() => props.categorias.filter(categoria =>
+  categoria.id === props.pauta?.categoria_id || (categoria.activo === true && !categoria.archivada_at),
+))
 const cargando = ref(props.accion === 'editar')
 const cargaFallida = ref(false)
 const guardando = ref(false)
@@ -95,7 +98,7 @@ async function guardar(): Promise<void> {
 
 <template>
   <Dialog :visible="true" modal block-scroll :closable="!guardando" :close-on-escape="!guardando"
-    :header="encabezados[accion]" :style="{ width: 'min(72rem, calc(100vw - 2rem))', maxHeight: '90dvh' }"
+    :header="encabezados[accion]" :style="{ width: 'min(48rem, calc(100vw - 2rem))', maxHeight: '90dvh' }"
     @update:visible="visible => { if (!visible) cerrar() }">
     <form id="form-gestion-pauta" class="space-y-4" :aria-busy="guardando || cargando" @submit.prevent="guardar">
       <p v-if="accion === 'eliminar'" class="text-sm text-slate-700">
@@ -117,7 +120,7 @@ async function guardar(): Promise<void> {
         <label class="block text-sm font-medium">Categoría *
           <select v-model="borrador.categoria_id" :disabled="pauta?.borrador_version" required :class="campo">
             <option value="" disabled>Selecciona una categoría</option>
-            <option v-for="categoria in categorias" :key="categoria.id" :value="categoria.id">
+            <option v-for="categoria in categoriasEditables" :key="categoria.id" :value="categoria.id">
               {{ categoria.nombre }}
             </option>
           </select>

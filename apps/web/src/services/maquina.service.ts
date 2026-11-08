@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { retirarRegistro } from './retiro-catalogo.service'
 import type { CatalogoMaquinas, CatalogoOpcion, MaquinaRegistro } from '../types/maquina'
 
 function esObjeto(value: unknown): value is Record<string, unknown> {
@@ -29,8 +30,9 @@ async function obtenerPaginas<T>(
   let desde = 0
   while (true) {
     signal.throwIfAborted()
-    const { data, error } = await supabase.from(tabla).select(columnas)
-      .order('id').range(desde, desde + tamanio - 1).abortSignal(signal)
+    let consulta = supabase.from(tabla).select(columnas)
+    if (tabla === 'maquina') consulta = consulta.is('eliminado_at', null)
+    const { data, error } = await consulta.order('id').range(desde, desde + tamanio - 1).abortSignal(signal)
     if (error) throw error
     const pagina: unknown = data
     if (!Array.isArray(pagina) || !pagina.every(validar)) {
@@ -64,6 +66,7 @@ export async function obtenerCatalogoMaquinas(signal: AbortSignal): Promise<Cata
     })).sort(porNombre),
   }
 }
+
 export async function reasignarMaquina(
   maquinaId: string,
   localOrigenId: string,
@@ -93,6 +96,7 @@ export async function reasignarMaquina(
     throw new Error('La ubicación cambió o no tienes permiso. Actualiza el catálogo.')
   }
 }
+
 export interface CambiosMaquina {
   nombre: string
   categoria_id: string
@@ -132,8 +136,16 @@ export async function actualizarMaquina(id: string, cambios: CambiosMaquina): Pr
   }
 }
 
-import { retirarRegistro } from './retiro-catalogo.service'
+export async function retirarMaquina(id: string): Promise<void> {
+  await retirarRegistro('maquina', id)
+}
 
 export async function eliminarMaquina(id: string): Promise<void> {
   await retirarRegistro('maquina', id)
+}
+
+export async function cambiarEstadoMaquina(id: string, activo: boolean): Promise<void> {
+  const { data, error } = await supabase.rpc('cambiar_estado_maquina', { p_id: id, p_activo: activo })
+  if (error?.code === 'P0001' || error?.code === '42501') throw new Error(error.message)
+  if (error || data !== id) throw new Error('No se pudo confirmar el cambio de estado. Actualiza el inventario.')
 }

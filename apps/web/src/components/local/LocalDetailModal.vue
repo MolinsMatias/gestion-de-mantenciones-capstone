@@ -141,49 +141,53 @@ onBeforeUnmount(() => {
 <template>
   <Teleport to="body">
     <dialog ref="dialogo" aria-labelledby="detalle-local-titulo"
-      class="m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-2xl overflow-y-auto rounded-3xl border-0 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/60"
+      class="m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-2xl overflow-hidden rounded-3xl border-0 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/60"
       @cancel.prevent="cerrar">
-      <header class="flex items-start justify-between gap-4 border-b border-slate-100 p-6">
-        <div>
-          <BuildingStorefrontIcon class="mb-3 size-8 text-blue-600" aria-hidden="true" />
-          <h2 id="detalle-local-titulo" class="text-2xl font-bold">
-            {{ editando ? 'Editar local' : 'Información del local' }}
-          </h2>
-          <p class="mt-2 text-sm text-slate-500">
-            {{ editando ? `Los cambios se aplican al pulsar Guardar cambios.` : `Consulta los datos o pulsa Editar para
-            modificarlos.` }}
-          </p>
+      <div class="flex max-h-[90dvh] min-h-0 flex-col">
+        <header class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 p-6">
+          <div>
+            <BuildingStorefrontIcon class="mb-3 size-8 text-blue-600" aria-hidden="true" />
+            <h2 id="detalle-local-titulo" class="text-2xl font-bold">
+              {{ editando ? 'Editar local' : 'Información del local' }}
+            </h2>
+            <p class="mt-2 text-sm text-slate-500">
+              {{ editando ? `Los cambios se aplican al pulsar Guardar cambios.` : `Consulta los datos o pulsa Editar para
+              modificarlos.` }}
+            </p>
+          </div>
+          <button type="button" aria-label="Cerrar ficha" :disabled="guardando"
+            class="rounded-lg p-2 hover:bg-slate-100 disabled:opacity-50" @click="cerrar">
+            <XMarkIcon class="size-5" aria-hidden="true" />
+          </button>
+        </header>
+
+        <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6">
+          <div class="space-y-5">
+            <p v-if="cargando" role="status" class="text-sm text-slate-500">
+              Cargando información del local…
+            </p>
+            <p v-if="mensaje" role="status" class="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
+              {{ mensaje }}
+            </p>
+            <p v-if="error" role="alert" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">
+              {{ error }}
+            </p>
+
+            <LocalInfoView v-if="local && !editando" :local="local" :guardando="guardando"
+              :mostrando-confirmacion="mostrandoConfirmacion" :maquinas-activas="props.maquinasActivas"
+              @editar="iniciarEdicion" @recargar="cargar"
+              @mostrar-confirmacion="mostrandoConfirmacion = true" @cancelar-confirmacion="mostrandoConfirmacion = false"
+              @confirmar-eliminacion="confirmarEliminacion" />
+
+            <LocalEditForm v-else-if="local && editando" :local="local" :guardando="guardando" @cancelar="cancelarEdicion"
+              @guardar="guardar" />
+
+            <button v-if="!local && !cargando" type="button" class="text-sm font-semibold text-blue-600 underline"
+              @click="cargar">
+              Reintentar
+            </button>
+          </div>
         </div>
-        <button type="button" aria-label="Cerrar ficha" :disabled="guardando"
-          class="rounded-lg p-2 hover:bg-slate-100 disabled:opacity-50" @click="cerrar">
-          <XMarkIcon class="size-5" aria-hidden="true" />
-        </button>
-      </header>
-
-      <div class="space-y-5 p-6">
-        <p v-if="cargando" role="status" class="text-sm text-slate-500">
-          Cargando información del local…
-        </p>
-        <p v-if="mensaje" role="status" class="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
-          {{ mensaje }}
-        </p>
-        <p v-if="error" role="alert" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">
-          {{ error }}
-        </p>
-
-        <LocalInfoView v-if="local && !editando" :local="local" :guardando="guardando"
-          :mostrando-confirmacion="mostrandoConfirmacion" :maquinas-activas="props.maquinasActivas"
-          @editar="iniciarEdicion" @recargar="cargar"
-          @mostrar-confirmacion="mostrandoConfirmacion = true" @cancelar-confirmacion="mostrandoConfirmacion = false"
-          @confirmar-eliminacion="confirmarEliminacion" />
-
-        <LocalEditForm v-else-if="local && editando" :local="local" :guardando="guardando" @cancelar="cancelarEdicion"
-          @guardar="guardar" />
-
-        <button v-if="!local && !cargando" type="button" class="text-sm font-semibold text-blue-600 underline"
-          @click="cargar">
-          Reintentar
-        </button>
       </div>
     </dialog>
   </Teleport>

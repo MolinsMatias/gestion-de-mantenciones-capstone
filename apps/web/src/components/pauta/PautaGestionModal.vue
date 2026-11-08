@@ -95,7 +95,7 @@ async function guardar(): Promise<void> {
   <Dialog :visible="true" modal block-scroll :closable="!guardando" :close-on-escape="!guardando"
     :header="encabezados[accion]" :style="{ width: 'min(48rem, calc(100vw - 2rem))', maxHeight: '90dvh' }"
     @update:visible="visible => { if (!visible) cerrar() }">
-    <form class="space-y-4" :aria-busy="guardando || cargando" @submit.prevent="guardar">
+    <form id="form-gestion-pauta" class="space-y-4" :aria-busy="guardando || cargando" @submit.prevent="guardar">
       <p v-if="accion === 'eliminar'" class="text-sm text-slate-700">
         ¿Retirar <strong>{{ pauta?.nombre }}</strong> (versión {{ pauta?.version }})?
         Se ocultará del catálogo. Sus secciones, ítems y mantenciones se conservarán.
@@ -166,15 +166,18 @@ async function guardar(): Promise<void> {
       </fieldset>
 
       <p v-if="error" role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>
+    </form>
+
+    <template #footer>
       <div class="flex justify-end gap-2">
         <button type="button" :disabled="guardando" class="rounded-lg border border-slate-300 px-4 py-2 text-sm"
           @click="cerrar">Cancelar</button>
-        <button type="submit" :disabled="guardando || cargando || cargaFallida"
+        <button type="submit" form="form-gestion-pauta" :disabled="guardando || cargando || cargaFallida"
           class="rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           :class="accion === 'eliminar' ? 'bg-red-700' : 'bg-blue-700'">
           {{ guardando ? 'Procesando…' : accion === 'eliminar' ? 'Sí, retirar' : 'Guardar pauta' }}
         </button>
       </div>
-    </form>
+    </template>
   </Dialog>
 </template>

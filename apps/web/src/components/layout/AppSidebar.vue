@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import {
-  ArrowRightStartOnRectangleIcon, CubeIcon, ChartBarSquareIcon,
+  ArrowRightStartOnRectangleIcon, CubeIcon, ChartBarSquareIcon, RectangleStackIcon, WrenchIcon
 } from '@heroicons/vue/24/outline'
 
 defineProps<{ saliendo: boolean; error: string }>()
@@ -28,9 +28,14 @@ defineEmits<{ salir: [] }>()
         <CubeIcon class="size-5" aria-hidden="true" />
         Máquinas y QR
       </RouterLink>
+      <RouterLink to="/mantenciones" class="mt-2 flex items-center gap-3 rounded-xl px-4 py-3 font-semibold"
+        active-class="bg-blue-600 shadow-lg shadow-blue-950/30">
+        <WrenchIcon class="size-5" aria-hidden="true" />
+        Mantención
+      </RouterLink>
       <RouterLink to="/pautas" class="mt-2 flex items-center gap-3 rounded-xl px-4 py-3 font-semibold"
         active-class="bg-blue-600 shadow-lg shadow-blue-950/30">
-        <CubeIcon class="size-5" aria-hidden="true" />
+        <RectangleStackIcon class="size-5" aria-hidden="true" />
         Pautas de mantenimiento
       </RouterLink>
     </nav>

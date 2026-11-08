@@ -1,0 +1,161 @@
+import { supabase } from './supabase'
+
+interface Mantencion {
+  id: string
+  local_id: string | null
+  maquina_id: string | null
+  tipo: string | null
+  estado: string | null
+  estado_equipo_final: string | null
+  recibida_at: string | null
+  finalizada_at: string | null
+}
+export interface LocalMantencion { id: string; nombre: string }
+interface MaquinaMantencion { id: string; nombre: string; codigo_interno: string }
+export interface FilaMantencion extends Mantencion {
+  local: LocalMantencion | null
+  maquina: MaquinaMantencion | null
+}
+
+export const POR_PAGINA = 20
+
+export async function obtenerLocalesMantenciones(signal: AbortSignal): Promise<LocalMantencion[]> {
+  const locales: LocalMantencion[] = []
+  const limite = 100
+  for (let desde = 0; ; desde += limite) {
+    signal.throwIfAborted()
+    const { data, error } = await supabase.from('local').select('id,nombre')
+      .order('nombre').order('id').range(desde, desde + limite - 1).abortSignal(signal)
+    if (error) throw error
+    locales.push(...data)
+    if (data.length < limite) return locales
+  }
+}
+
+export async function obtenerMantenciones(
+  filtros: { pagina: number; localId: string; tipo: string },
+  locales: LocalMantencion[],
+  signal: AbortSignal,
+): Promise<{ filas: FilaMantencion[]; total: number }> {
+  const desde = (filtros.pagina - 1) * POR_PAGINA
+  let consulta = supabase.from('mantencion')
+    .select('id,local_id,maquina_id,tipo,estado,estado_equipo_final,recibida_at,finalizada_at', { count: 'exact' })
+    .eq('estado', 'enviada').not('finalizada_at', 'is', null)
+  if (filtros.localId) consulta = consulta.eq('local_id', filtros.localId)
+  if (filtros.tipo) consulta = consulta.eq('tipo', filtros.tipo)
+  const { data, count, error } = await consulta
+    .order('finalizada_at', { ascending: false }).order('id', { ascending: false })
+    .range(desde, desde + POR_PAGINA - 1).abortSignal(signal)
+  if (error) throw error
+
+  const registros = data as Mantencion[]
+  const ids = [...new Set(registros.flatMap(fila => fila.maquina_id ? [fila.maquina_id] : []))]
+  const maquinas = new Map<string, MaquinaMantencion>()
+  if (ids.length) {
+    const resultado = await supabase.from('maquina').select('id,nombre,codigo_interno')
+      .in('id', ids).abortSignal(signal)
+    if (resultado.error) throw resultado.error
+    for (const maquina of resultado.data) maquinas.set(maquina.id, maquina)
+  }
+  const localesPorId = new Map(locales.map(local => [local.id, local]))
+  return {
+    total: count ?? 0,
+    filas: registros.map(fila => ({
+      ...fila,
+      local: localesPorId.get(fila.local_id ?? '') ?? null,
+      maquina: maquinas.get(fila.maquina_id ?? '') ?? null,
+    })),
+  }
+}
+
+const formatoFecha = new Intl.DateTimeFormat('es-CL', {
+  dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Santiago',
+})
+
+export function fechaMantencion(valor: string | null): string {
+  const fecha = valor ? new Date(valor) : null
+  return fecha && Number.isFinite(fecha.getTime()) ? formatoFecha.format(fecha) : 'Sin fecha'
+}
+
+export function etiquetaMantencion(valor: string | null): string {
+  if (!valor) return 'Sin registro'
+  if (valor === 'inspeccion') return 'Inspección'
+  return valor.replace(/_/g, ' ').replace(/^./, letra => letra.toUpperCase())
+}
+
+
+export interface EvidenciaMantencion {
+  id: string
+  respuesta_item_id: string | null
+  archivo_path: string | null
+  descripcion: string | null
+  created_at: string | null
+}
+
+async function leerDetallePaginado<T>(
+  consultar: (desde: number, hasta: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const filas: T[] = []
+  for (let desde = 0; ; desde += 100) {
+    const { data, error } = await consultar(desde, desde + 99)
+    if (error) throw error
+    filas.push(...(data ?? []))
+    if (!data || data.length < 100) return filas
+  }
+}
+
+export async function obtenerDetalleMantencion(id: string, signal: AbortSignal) {
+  const { data: registro, error } = await supabase.from('mantencion')
+    .select('id,pauta_id,tecnico_id,iniciada_at,enviada_at,recibida_at,finalizada_at,falla_reportada,trabajos_realizados,requiere_repuestos,detalle_repuestos,pendientes,observaciones')
+    .eq('id', id).eq('estado', 'enviada').not('finalizada_at', 'is', null)
+    .abortSignal(signal).single()
+  if (error) throw error
+
+  const [pauta, tecnico, respuestas, evidencias] = await Promise.all([
+    registro.pauta_id ? supabase.from('pauta').select('nombre,version')
+      .eq('id', registro.pauta_id).abortSignal(signal).maybeSingle() : null,
+    registro.tecnico_id ? supabase.from('usuario').select('nombre,segundo_nombre,apellido_paterno,apellido_materno')
+      .eq('id', registro.tecnico_id).abortSignal(signal).maybeSingle() : null,
+    leerDetallePaginado((desde, hasta) => supabase.from('respuesta_item')
+      .select('id,item_id,resultado,observaciones,created_at').eq('mantencion_id', id)
+      .order('created_at').order('id').range(desde, hasta).abortSignal(signal)),
+    leerDetallePaginado<EvidenciaMantencion>((desde, hasta) => supabase.from('evidencia')
+      .select('id,respuesta_item_id,archivo_path,descripcion,created_at').eq('mantencion_id', id)
+      .order('created_at').order('id').range(desde, hasta).abortSignal(signal)),
+  ])
+  const items = new Map<string, string>()
+  const ids = [...new Set(respuestas.map(respuesta => respuesta.item_id as string).filter(Boolean))]
+  for (let i = 0; i < ids.length; i += 100) {
+    signal.throwIfAborted()
+    const resultado = await supabase.from('item_pauta').select('id,descripcion')
+      .in('id', ids.slice(i, i + 100)).abortSignal(signal)
+    if (resultado.error) throw resultado.error
+    for (const item of resultado.data) items.set(item.id, item.descripcion)
+  }
+
+  const persona = tecnico?.data
+  const nombreTecnico = persona
+    ? [persona.nombre, persona.segundo_nombre, persona.apellido_paterno, persona.apellido_materno]
+        .filter(Boolean).join(' ')
+    : null
+  return {
+    registro,
+    pauta: pauta?.data ?? null,
+    nombreTecnico,
+    respuestas: respuestas.map(respuesta => ({
+      ...respuesta,
+      pregunta: items.get(respuesta.item_id) ?? 'Ítem no disponible',
+    })),
+    evidencias,
+  }
+}
+
+const bucketEvidencias = (import.meta.env.VITE_SUPABASE_EVIDENCIAS_BUCKET as string | undefined)?.trim()
+export const puedeAbrirEvidencias = Boolean(bucketEvidencias)
+
+export async function obtenerEnlaceEvidencia(ruta: string): Promise<string> {
+  if (!bucketEvidencias) throw new Error('Bucket de evidencias no configurado.')
+  const { data, error } = await supabase.storage.from(bucketEvidencias).createSignedUrl(ruta, 60)
+  if (error) throw error
+  return data.signedUrl
+}

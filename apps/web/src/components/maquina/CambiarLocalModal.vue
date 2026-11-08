@@ -53,53 +53,62 @@ async function guardar(): Promise<void> {
     <dialog
       ref="dialogo"
       aria-labelledby="cambiar-local-titulo"
-      class="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl backdrop:bg-slate-950/50"
+      class="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-md overflow-hidden rounded-2xl bg-white p-0 shadow-xl backdrop:bg-slate-950/50"
       @cancel.prevent="cancelar"
     >
-      <h2 id="cambiar-local-titulo" class="text-lg font-bold text-slate-900">Cambiar local</h2>
+      <div class="flex max-h-[90dvh] min-h-0 flex-col">
+        <header class="shrink-0 border-b border-slate-200 bg-white p-5">
+          <h2 id="cambiar-local-titulo" class="text-lg font-bold text-slate-900">Cambiar local</h2>
+        </header>
 
-      <form class="mt-4 space-y-4" :aria-busy="guardando" @submit.prevent="guardar">
-        <p class="text-sm text-slate-600">
-          <strong>{{ maquina.nombre }}</strong> · {{ maquina.codigo_interno }}
-        </p>
-        <p class="text-sm text-slate-600">Ubicación actual: {{ maquina.localNombre }}</p>
+        <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">
+          <form id="form-cambiar-local" class="space-y-4" :aria-busy="guardando" @submit.prevent="guardar">
+            <p class="text-sm text-slate-600">
+              <strong>{{ maquina.nombre }}</strong> · {{ maquina.codigo_interno }}
+            </p>
+            <p class="text-sm text-slate-600">Ubicación actual: {{ maquina.localNombre }}</p>
 
-        <label class="block text-sm font-semibold text-slate-900">
-          Local de destino
-          <select
-            v-model="destinoId"
-            required
-            :disabled="guardando || !destinos.length"
-            class="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2"
-          >
-            <option value="" disabled>Selecciona un local</option>
-            <option v-for="local in destinos" :key="local.id" :value="local.id">
-              {{ local.nombre }}
-            </option>
-          </select>
-        </label>
+            <label class="block text-sm font-semibold text-slate-900">
+              Local de destino
+              <select
+                v-model="destinoId"
+                required
+                :disabled="guardando || !destinos.length"
+                class="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2"
+              >
+                <option value="" disabled>Selecciona un local</option>
+                <option v-for="local in destinos" :key="local.id" :value="local.id">
+                  {{ local.nombre }}
+                </option>
+              </select>
+            </label>
 
-        <p v-if="!destinos.length" class="text-sm text-slate-500">No hay otro local disponible.</p>
-        <p v-if="error" role="alert" class="text-sm text-red-700">{{ error }}</p>
-
-        <div class="flex flex-wrap justify-end gap-2">
-          <button
-            type="button"
-            :disabled="guardando"
-            class="rounded-lg border border-slate-300 px-4 py-2 text-sm disabled:opacity-50"
-            @click="cancelar"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            :disabled="guardando || !destinoValido"
-            class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            {{ guardando ? 'Guardando…' : 'Guardar traslado' }}
-          </button>
+            <p v-if="!destinos.length" class="text-sm text-slate-500">No hay otro local disponible.</p>
+            <p v-if="error" role="alert" class="text-sm text-red-700">{{ error }}</p>
+          </form>
         </div>
-      </form>
+
+        <footer class="shrink-0 border-t border-slate-200 bg-white p-4">
+          <div class="flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              :disabled="guardando"
+              class="rounded-lg border border-slate-300 px-4 py-2 text-sm disabled:opacity-50"
+              @click="cancelar"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              form="form-cambiar-local"
+              :disabled="guardando || !destinoValido"
+              class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              {{ guardando ? 'Guardando…' : 'Guardar traslado' }}
+            </button>
+          </div>
+        </footer>
+      </div>
     </dialog>
   </Teleport>
 </template>

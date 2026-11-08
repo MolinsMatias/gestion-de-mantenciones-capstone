@@ -7,6 +7,8 @@ export interface Pauta {
   descripcion: string | null
   version: number
   activo: boolean
+  eliminado_at: string | null
+  borrador_version: boolean
 }
 export interface CategoriaPauta { id: string; nombre: string }
 export interface ItemPauta {
@@ -45,8 +47,7 @@ async function leerPaginas<T>(
 export async function obtenerCatalogoPautas(signal: AbortSignal) {
   const [pautas, categorias] = await Promise.all([
     leerPaginas<Pauta>((a, b) => supabase.from('pauta')
-      .select('id,categoria_id,nombre,descripcion,version,activo')
-      .is('eliminado_at', null)
+      .select('id,categoria_id,nombre,descripcion,version,activo,eliminado_at,borrador_version')
       .order('nombre').order('version', { ascending: false }).order('id')
       .range(a, b).abortSignal(signal), signal),
     leerPaginas<CategoriaPauta>((a, b) => supabase.from('categoria_maquina')
@@ -109,5 +110,15 @@ export async function gestionarPauta(
   if (error || typeof data !== 'string') {
     throw new Error('No se pudo confirmar el cambio. Actualiza el listado antes de volver a intentarlo.')
   }
+  return data
+}
+
+
+export type AccionVersionPauta = 'crear_borrador' | 'publicar'
+
+export async function gestionarVersionPauta(accion: AccionVersionPauta, id: string): Promise<string> {
+  const { data, error } = await supabase.rpc('gestionar_version_pauta', { p_accion: accion, p_id: id })
+  if (error) throw new Error(error.message)
+  if (typeof data !== 'string') throw new Error('No se pudo confirmar el cambio de versión.')
   return data
 }

@@ -1,41 +1,56 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
+import CargaSeccion from '../components/layout/CargaSeccion.vue'
+import { useCargaInicial } from '../composables/useCargaInicial'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Dialog from 'primevue/dialog'
-import CargaSeccion from '../components/layout/CargaSeccion.vue'
 import PautaDetalle from '../components/pauta/PautaDetalle.vue'
 import PautaGestionModal from '../components/pauta/PautaGestionModal.vue'
-import { obtenerCatalogoPautas, type Pauta, type CategoriaPauta, type AccionPauta } from '../services/pauta.service'
-import { useCargaInicial } from '../composables/useCargaInicial'
+import { obtenerCatalogoPautas, type Pauta, type CategoriaPauta, type AccionPauta, type AccionVersionPauta } from '../services/pauta.service'
 
 const pautas = ref<Pauta[]>([])
 const categorias = ref<CategoriaPauta[]>([])
 const cargando = ref(false)
-const cargado = ref(false)
 const error = ref(false)
 const busqueda = ref('')
 const categoriaId = ref('')
 const estado = ref('')
 const primeraFila = ref(0)
 const seleccionadaId = ref<string | null>(null)
-const gestion = ref<{ accion: AccionPauta; pauta?: Pauta } | null>(null)
+const gestion = ref<{ accion: AccionPauta | AccionVersionPauta; pauta?: Pauta } | null>(null)
 const mensaje = ref('')
 let solicitud: AbortController | null = null
 
-function abrirGestion(accion: AccionPauta, pauta?: Pauta): void {
+function abrirGestion(accion: AccionPauta | AccionVersionPauta, pauta?: Pauta): void {
   if (cargando.value || gestion.value || (accion !== 'crear' && !pauta)) return
   mensaje.value = ''
   gestion.value = { accion, pauta }
 }
 
-async function alCompletar(accion: AccionPauta): Promise<void> {
+async function alCompletar(accion: AccionPauta | AccionVersionPauta, id: string): Promise<void> {
   seleccionadaId.value = null
   gestion.value = null
-  mensaje.value = accion === 'crear' ? 'Pauta creada.'
-    : accion === 'editar' ? 'Pauta actualizada.' : 'Pauta retirada del catálogo.'
+  mensaje.value = {
+    crear: 'Pauta creada.', editar: 'Pauta actualizada.', eliminar: 'Pauta archivada.',
+    crear_borrador: 'Borrador disponible para editar.', publicar: 'Versión publicada; la anterior quedó archivada.',
+  }[accion]
+  if (accion === 'publicar') estado.value = 'activa'
   await cargar()
+  if (accion === 'crear_borrador') {
+    const borrador = pautas.value.find(p => p.id === id)
+    if (borrador) {
+      estado.value = 'borrador'
+      seleccionadaId.value = id
+      gestion.value = { accion: 'editar', pauta: borrador }
+    }
+  }
 }
+
+function estadoPauta(p: Pauta) {
+  return p.eliminado_at ? 'archivada' : p.borrador_version ? 'borrador' : p.activo ? 'activa' : 'inactiva'
+}
+const etiquetas = { archivada: 'Archivada', borrador: 'Borrador', activa: 'Activa', inactiva: 'Inactiva' }
 
 const categoriasPorId = computed(() => new Map(categorias.value.map(c => [c.id, c.nombre])))
 function nombreCategoria(id: string) { return categoriasPorId.value.get(id) ?? 'Categoría no disponible' }
@@ -47,7 +62,7 @@ const filtradas = computed(() => {
   return pautas.value.filter(p =>
     normalizar(p.nombre).includes(texto) &&
     (!categoriaId.value || p.categoria_id === categoriaId.value) &&
-    (!estado.value || p.activo === (estado.value === 'activa')),
+    (estado.value ? estadoPauta(p) === estado.value : !p.eliminado_at),
   )
 })
 const seleccionada = computed(() => pautas.value.find(p => p.id === seleccionadaId.value))
@@ -70,7 +85,6 @@ async function cargar() {
     if (actual.signal.aborted) return
     pautas.value = resultado.pautas
     categorias.value = resultado.categorias
-    cargado.value = true
     primeraFila.value = 0
     if (!seleccionada.value) seleccionadaId.value = null
   } catch {
@@ -120,22 +134,23 @@ onUnmounted(() => solicitud?.abort())
       </label>
       <label class="text-sm">Estado
         <select v-model="estado" class="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2">
-          <option value="">Todos</option>
+          <option value="">Sin archivar</option>
           <option value="activa">Activas</option>
           <option value="inactiva">Inactivas</option>
+          <option value="borrador">Borradores</option>
+          <option value="archivada">Archivadas</option>
         </select>
       </label>
     </div>
 
     <p v-if="mensaje" role="status" class="mb-3 text-sm text-emerald-700">{{ mensaje }}</p>
-    <p v-if="error" role="alert" class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+    <p v-if="error && !mostrandoCargaInicial" role="alert" class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
       No se pudo cargar el catálogo. Comprueba los permisos de lectura o pulsa Actualizar.
     </p>
 
     <CargaSeccion v-if="mostrandoCargaInicial" variante="tabla" mensaje="Cargando pautas…" />
-
     <div v-else class="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-      <DataTable v-model:first="primeraFila" :value="filtradas" data-key="id" :loading="cargando" paginator :rows="10"
+      <DataTable v-model:first="primeraFila" :value="filtradas" data-key="id" paginator :rows="10"
         :rows-per-page-options="[10, 25, 50]" :table-style="{ minWidth: '38rem' }">
         <template #empty>{{ error ? 'Catálogo no disponible.' : 'No hay pautas que coincidan.' }}</template>
         <Column field="nombre" header="Pauta" />
@@ -147,7 +162,7 @@ onUnmounted(() => solicitud?.abort())
           <template #body="{ data }">
             <span class="rounded-full px-2 py-1 text-xs font-medium"
               :class="data.activo ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-700'">
-              {{ data.activo ? 'Activa' : 'Inactiva' }}
+              {{ etiquetas[estadoPauta(data)] }}
             </span>
           </template>
         </Column>
@@ -162,11 +177,17 @@ onUnmounted(() => solicitud?.abort())
     </div>
 
     <Dialog v-if="!gestion" v-model:visible="detalleVisible" modal block-scroll header="Detalle de pauta"
-      :style="{ width: 'min(52rem, calc(100vw - 2rem))', maxHeight: '90dvh' }">
+      :style="{ width: 'min(72rem, calc(100vw - 2rem))', maxHeight: '90dvh' }">
       <PautaDetalle v-if="seleccionada" :key="seleccionada.id" :pauta="seleccionada"
         :categoria="nombreCategoria(seleccionada.categoria_id)" />
       <template #footer>
-        <div v-if="seleccionada" class="flex flex-wrap justify-end gap-2">
+        <div v-if="seleccionada && !seleccionada.eliminado_at" class="flex flex-wrap justify-end gap-2">
+          <button v-if="seleccionada.activo" type="button" :disabled="cargando"
+            class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white"
+            @click="abrirGestion('crear_borrador', seleccionada)">Crear nueva versión</button>
+          <button v-if="seleccionada.borrador_version" type="button" :disabled="cargando"
+            class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white"
+            @click="abrirGestion('publicar', seleccionada)">Publicar versión</button>
           <button type="button" :disabled="cargando"
             class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"
             @click="abrirGestion('editar', seleccionada)">
@@ -175,7 +196,7 @@ onUnmounted(() => solicitud?.abort())
           <button type="button" :disabled="cargando"
             class="rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-700 disabled:opacity-50"
             @click="abrirGestion('eliminar', seleccionada)">
-            Retirar pauta
+            Archivar pauta
           </button>
         </div>
       </template>

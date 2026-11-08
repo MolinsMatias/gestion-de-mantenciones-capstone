@@ -131,27 +131,9 @@ export async function actualizarMaquina(id: string, cambios: CambiosMaquina): Pr
     throw new Error('La máquina ya no está disponible o no tienes permiso para editarla.')
   }
 }
+
+import { retirarRegistro } from './retiro-catalogo.service'
+
 export async function eliminarMaquina(id: string): Promise<void> {
-  const { data, error } = await supabase
-    .from('maquina')
-    .delete()
-    .eq('id', id)
-    .select('id')
-    .maybeSingle()
-
-  if (error?.code === '23503') {
-    throw new Error(
-      'No se puede eliminar la máquina porque tiene mantenciones u otros registros asociados. Puedes desactivarla desde Editar.',
-    )
-  }
-
-  if (error) {
-    throw new Error(
-      'No se pudo confirmar la eliminación. Actualiza el catálogo para comprobar el estado.',
-    )
-  }
-
-  if (!data) {
-    throw new Error('La máquina ya no existe o no tienes permiso para eliminarla.')
-  }
+  await retirarRegistro('maquina', id)
 }

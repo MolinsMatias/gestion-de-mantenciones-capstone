@@ -2,18 +2,18 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import Dialog from 'primevue/dialog'
 import {
-  gestionarPauta, obtenerSeccionesPauta,
-  type AccionPauta, type CategoriaPauta, type ItemPautaBorrador,
+  gestionarPauta, gestionarVersionPauta, obtenerSeccionesPauta,
+  type AccionPauta, type AccionVersionPauta, type CategoriaPauta, type ItemPautaBorrador,
   type Pauta, type PautaBorrador, type SeccionPautaBorrador,
 } from '../../services/pauta.service'
 
 const props = defineProps<{
-  accion: AccionPauta
+  accion: AccionPauta | AccionVersionPauta
   pauta?: Pauta
   categorias: CategoriaPauta[]
 }>()
-const emit = defineEmits<{ cerrar: []; completado: [accion: AccionPauta] }>()
-const encabezados = { crear: 'Crear pauta', editar: 'Editar pauta', eliminar: 'Retirar pauta' }
+const emit = defineEmits<{ cerrar: []; completado: [accion: AccionPauta | AccionVersionPauta, id: string] }>()
+const encabezados = { crear: 'Crear pauta', editar: 'Editar pauta', eliminar: 'Archivar pauta', crear_borrador: 'Crear nueva versión', publicar: 'Publicar versión' }
 const campo = 'mt-1 w-full rounded-lg border border-slate-300 bg-white p-2 text-slate-900'
 const nuevoItem = (): ItemPautaBorrador => ({
   descripcion: '', instrucciones: '', obligatorio: true, permite_no_aplica: false,
@@ -68,7 +68,7 @@ async function guardar(): Promise<void> {
   if (guardando.value || cargando.value || cargaFallida.value) return
   if (props.accion !== 'crear' && !props.pauta) return
   error.value = ''
-  if (props.accion !== 'eliminar') {
+  if (props.accion === 'crear' || props.accion === 'editar') {
     const p = borrador.value
     if (!p.nombre.trim() || !p.categoria_id || !p.secciones.length ||
       p.secciones.some(s => !s.nombre.trim() || !s.items.length ||
@@ -80,9 +80,11 @@ async function guardar(): Promise<void> {
 
   guardando.value = true
   try {
-    await gestionarPauta(props.accion, props.pauta?.id ?? null,
-      props.accion === 'eliminar' ? null : borrador.value)
-    emit('completado', props.accion)
+    const id = props.accion === 'crear_borrador' || props.accion === 'publicar'
+      ? await gestionarVersionPauta(props.accion, props.pauta!.id)
+      : await gestionarPauta(props.accion, props.pauta?.id ?? null,
+        props.accion === 'eliminar' ? null : borrador.value)
+    emit('completado', props.accion, id)
   } catch (causa: unknown) {
     error.value = causa instanceof Error ? causa.message : 'No se pudo guardar el cambio.'
   } finally {
@@ -93,12 +95,18 @@ async function guardar(): Promise<void> {
 
 <template>
   <Dialog :visible="true" modal block-scroll :closable="!guardando" :close-on-escape="!guardando"
-    :header="encabezados[accion]" :style="{ width: 'min(48rem, calc(100vw - 2rem))', maxHeight: '90dvh' }"
+    :header="encabezados[accion]" :style="{ width: 'min(72rem, calc(100vw - 2rem))', maxHeight: '90dvh' }"
     @update:visible="visible => { if (!visible) cerrar() }">
     <form id="form-gestion-pauta" class="space-y-4" :aria-busy="guardando || cargando" @submit.prevent="guardar">
       <p v-if="accion === 'eliminar'" class="text-sm text-slate-700">
-        ¿Retirar <strong>{{ pauta?.nombre }}</strong> (versión {{ pauta?.version }})?
-        Se ocultará del catálogo. Sus secciones, ítems y mantenciones se conservarán.
+        ¿Archivar <strong>{{ pauta?.nombre }}</strong> (versión {{ pauta?.version }})?
+        Dejará de ofrecerse para trabajos nuevos. Sus secciones, ítems y mantenciones se conservarán.
+      </p>
+      <p v-else-if="accion === 'crear_borrador'" class="text-sm text-slate-700">
+        Se abrirá una copia editable como borrador. La versión actual seguirá vigente.
+      </p>
+      <p v-else-if="accion === 'publicar'" class="text-sm text-slate-700">
+        La nueva versión quedará vigente y se archivará la anterior. Se conservarán sus mantenciones y respuestas.
       </p>
       <p v-else-if="cargando" role="status">Cargando secciones e ítems…</p>
 
@@ -107,7 +115,7 @@ async function guardar(): Promise<void> {
           <input v-model="borrador.nombre" required :class="campo" />
         </label>
         <label class="block text-sm font-medium">Categoría *
-          <select v-model="borrador.categoria_id" required :class="campo">
+          <select v-model="borrador.categoria_id" :disabled="pauta?.borrador_version" required :class="campo">
             <option value="" disabled>Selecciona una categoría</option>
             <option v-for="categoria in categorias" :key="categoria.id" :value="categoria.id">
               {{ categoria.nombre }}
@@ -117,7 +125,7 @@ async function guardar(): Promise<void> {
         <label class="block text-sm font-medium">Descripción
           <textarea v-model="borrador.descripcion" rows="2" :class="campo" />
         </label>
-        <label class="flex items-center gap-2 text-sm">
+        <label v-if="!pauta?.borrador_version" class="flex items-center gap-2 text-sm">
           <input v-model="borrador.activo" type="checkbox" /> Pauta activa
         </label>
         <p v-if="accion === 'editar'" class="text-xs text-slate-500">
@@ -167,7 +175,6 @@ async function guardar(): Promise<void> {
 
       <p v-if="error" role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>
     </form>
-
     <template #footer>
       <div class="flex justify-end gap-2">
         <button type="button" :disabled="guardando" class="rounded-lg border border-slate-300 px-4 py-2 text-sm"
@@ -175,7 +182,8 @@ async function guardar(): Promise<void> {
         <button type="submit" form="form-gestion-pauta" :disabled="guardando || cargando || cargaFallida"
           class="rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           :class="accion === 'eliminar' ? 'bg-red-700' : 'bg-blue-700'">
-          {{ guardando ? 'Procesando…' : accion === 'eliminar' ? 'Sí, retirar' : 'Guardar pauta' }}
+          {{ guardando ? 'Procesando…' : accion === 'eliminar' ? 'Sí, archivar' : accion === 'publicar' ? 'Publicar' :
+            accion === 'crear_borrador' ? 'Crear borrador' : 'Guardar pauta' }}
         </button>
       </div>
     </template>

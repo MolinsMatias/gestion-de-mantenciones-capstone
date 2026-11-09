@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { cambiarEstadoMaquina, retirarMaquina } from '../../services/maquina.service'
 
+
 type Accion = 'desactivar' | 'reactivar' | 'retirar'
 const props = defineProps<{ id: string; nombre: string; activo: boolean | null }>()
 const emit = defineEmits<{ completado: [accion: Accion, id: string]; ocupado: [valor: boolean] }>()
@@ -50,6 +51,7 @@ async function confirmar() {
         @click="elegir(cambioEstado)">{{ etiquetas[cambioEstado] }}</button>
       <button type="button" class="rounded-lg px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
         @click="elegir('retirar')">Retirar del inventario</button>
+      <button></button>
     </div>
     <div v-else class="space-y-3 rounded-xl bg-slate-50 p-4 text-sm">
       <p class="font-semibold">{{ etiquetas[accion] }}: {{ nombre }}</p>

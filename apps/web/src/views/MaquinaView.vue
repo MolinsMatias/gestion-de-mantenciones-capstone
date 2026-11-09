@@ -2,6 +2,8 @@
 import { onUnmounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { ArrowPathIcon, ExclamationTriangleIcon, PlusIcon } from '@heroicons/vue/24/outline'
+import CambiarLocalModal from '../components/maquina/CambiarLocalModal.vue'
+import { obtenerOpcionesCrearMaquina } from '../services/crear-maquina.service'
 import CategoriasMaquinaModal from '../components/maquina/CategoriasMaquinaModal.vue'
 import CargaSeccion from '../components/layout/CargaSeccion.vue'
 import MaquinaFichaDatos from '../components/maquina/MaquinaFichaDatos.vue'
@@ -9,9 +11,9 @@ import type { MaquinaDetalle } from '../types/maquina'
 import MaquinaAccionesBaja from '../components/maquina/MaquinaAccionesBaja.vue'
 import { useCargaInicial } from '../composables/useCargaInicial'
 import { useMaquinasStore } from '../stores/maquina'
-import MaquinasFilters from '../components/maquina/MaquinaFilter.vue'
-import MachineRow from '../components/maquina/MaquinaFila.vue'
-import MachineDetailPanel from '../components/maquina/MaquinaDetallePanel.vue'
+import MaquinaFilter from '../components/maquina/MaquinaFilter.vue'
+import MaquinaFila from '../components/maquina/MaquinaFila.vue'
+import MaquinaDetallePanel from '../components/maquina/MaquinaDetallePanel.vue'
 import CrearMaquinaModal from '../components/maquina/CrearMaquinaModal.vue'
 import type { MaquinaCreada } from '../types/crear-maquina'
 
@@ -45,15 +47,66 @@ const dialogoBaja = ref<HTMLDialogElement | null>(null)
 const maquinaBaja = ref<MaquinaDetalle | null>(null)
 const procesandoBaja = ref(false)
 
+const mostrandoCambioLocal = ref(false)
+const cargandoDestinos = ref(false)
+const destinosCambioLocal = ref<Awaited<ReturnType<typeof obtenerOpcionesCrearMaquina>>['locales']>([])
+const mensajeFicha = ref('')
+const errorFicha = ref('')
+let solicitudDestinos: AbortController | undefined
+
+async function abrirCambioLocal(): Promise<void> {
+  if (!maquinaBaja.value || procesandoBaja.value || cargandoDestinos.value || mostrandoCambioLocal.value) return
+  solicitudDestinos?.abort()
+  const actual = new AbortController()
+  solicitudDestinos = actual
+  cargandoDestinos.value = true
+  errorFicha.value = ''
+  mensajeFicha.value = ''
+
+  try {
+    const opciones = await obtenerOpcionesCrearMaquina(actual.signal)
+    if (actual.signal.aborted) return
+    destinosCambioLocal.value = opciones.locales.filter(local => local.id !== maquinaBaja.value?.local_id)
+    mostrandoCambioLocal.value = true
+  } catch {
+    if (!actual.signal.aborted) errorFicha.value = 'No se pudieron cargar los locales disponibles. Intenta nuevamente.'
+  } finally {
+    if (!actual.signal.aborted) cargandoDestinos.value = false
+  }
+}
+
+function cerrarFicha(): void {
+  solicitudDestinos?.abort()
+  cargandoDestinos.value = false
+  mostrandoCambioLocal.value = false
+  maquinaBaja.value = null
+}
+
+async function alReasignarDesdeFicha(id: string, destinoId: string): Promise<void> {
+  mostrandoCambioLocal.value = false
+  const actual = maquinaBaja.value
+  if (!actual || actual.id !== id) return
+
+  const destino = destinosCambioLocal.value.find(local => local.id === destinoId)
+  maquinaBaja.value = { ...actual, local_id: destinoId, localNombre: destino?.nombre ?? 'Local actualizado' }
+  mensajeFicha.value = 'Local actualizado. El código y el historial de la máquina se conservan.'
+  await catalogo.cargar()
+  if (maquinaBaja.value?.id !== id) return
+  if (localId.value === actual.local_id) localId.value = destinoId
+  if (maquinasFiltradas.value.some(maquina => maquina.id === id)) catalogo.seleccionar(id)
+}
+
 function abrirBaja(): void {
   if (!maquinaSeleccionada.value || cargando.value || dialogoBaja.value?.open) return
   maquinaBaja.value = { ...maquinaSeleccionada.value }
+  mensajeFicha.value = ''
+  errorFicha.value = ''
   mensajeExito.value = ''
   dialogoBaja.value?.showModal()
 }
 
 function cerrarBaja(): void {
-  if (!procesandoBaja.value) dialogoBaja.value?.close()
+  if (!procesandoBaja.value && !mostrandoCambioLocal.value) dialogoBaja.value?.close()
 }
 
 async function alCompletarBaja(accion: 'desactivar' | 'reactivar' | 'retirar', id: string): Promise<void> {
@@ -68,7 +121,7 @@ async function alCompletarBaja(accion: 'desactivar' | 'reactivar' | 'retirar', i
     catalogo.seleccionar(id)
   }
 }
-onUnmounted(() => catalogo.limpiar())
+onUnmounted(() => { solicitudDestinos?.abort(); catalogo.limpiar() })
 </script>
 
 <template>
@@ -99,7 +152,7 @@ onUnmounted(() => catalogo.limpiar())
     class="mb-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
     <ExclamationTriangleIcon class="size-5 shrink-0" aria-hidden="true" />{{ error }}
   </div>
-  <MaquinasFilters v-model:busqueda="busqueda" v-model:local-id="localId" v-model:categoria-id="categoriaId"
+  <MaquinaFilter v-model:busqueda="busqueda" v-model:local-id="localId" v-model:categoria-id="categoriaId"
     v-model:estado="estado" :locales="locales" :categorias="categorias"
     :deshabilitado="mostrandoCargaInicial || (cargando && !cargado)" @limpiar="catalogo.limpiarFiltros()" />
   <CargaSeccion v-if="mostrandoCargaInicial" variante="tabla" mensaje="Cargando máquinas…" />
@@ -119,7 +172,7 @@ onUnmounted(() => catalogo.limpiar())
               </tr>
             </thead>
             <tbody>
-              <MachineRow v-for="maquina in maquinasFiltradas" :key="maquina.id" :maquina="maquina"
+              <MaquinaFila v-for="maquina in maquinasFiltradas" :key="maquina.id" :maquina="maquina"
                 :seleccionada="maquinaSeleccionada?.id === maquina.id" @seleccionar="catalogo.seleccionar" />
             </tbody>
           </table>
@@ -131,7 +184,7 @@ onUnmounted(() => catalogo.limpiar())
         <button type="button" :disabled="cargando"
           class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-50"
           @click="abrirBaja">Ver ficha y gestionar estado</button>
-        <MachineDetailPanel :maquina="maquinaSeleccionada" />
+        <MaquinaDetallePanel :maquina="maquinaSeleccionada" />
       </div>
     </div>
     <p class="mt-6 text-xs leading-relaxed text-slate-500">Activo e inactivo corresponden al registro del catálogo. El
@@ -139,7 +192,7 @@ onUnmounted(() => catalogo.limpiar())
   </template>
   <dialog ref="dialogoBaja" aria-labelledby="titulo-baja-maquina"
     class="m-auto w-[calc(100%_-_2rem)] max-w-2xl overflow-hidden rounded-2xl bg-white p-0 shadow-xl backdrop:bg-slate-950/60"
-    @cancel.prevent="cerrarBaja" @close="maquinaBaja = null">
+    @cancel.prevent="cerrarBaja" @close="cerrarFicha">
     <div class="flex max-h-[90dvh] min-h-0 flex-col">
       <header class="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 p-4">
         <h2 id="titulo-baja-maquina" class="font-bold">Ficha de la máquina</h2>
@@ -148,11 +201,23 @@ onUnmounted(() => catalogo.limpiar())
       </header>
       <div class="min-h-0 space-y-5 overflow-y-auto overscroll-contain p-5 sm:p-6">
         <MaquinaFichaDatos v-if="maquinaBaja" :maquina="maquinaBaja" />
-        <MaquinaAccionesBaja v-if="maquinaBaja" :key="maquinaBaja.id" :id="maquinaBaja.id" :nombre="maquinaBaja.nombre"
-          :activo="maquinaBaja.activo" @completado="alCompletarBaja" @ocupado="procesandoBaja = $event" />
+        <p v-if="mensajeFicha" role="status" class="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{{
+          mensajeFicha
+        }}</p>
+        <p v-if="errorFicha" role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-700">{{ errorFicha }}</p>
+        <button v-if="maquinaBaja" type="button" :disabled="procesandoBaja || cargandoDestinos || cargando"
+          class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50"
+          @click="abrirCambioLocal">{{ cargandoDestinos ? 'Cargando locales…' : 'Cambiar local' }}</button>
+        <fieldset :disabled="cargandoDestinos || cargando" class="min-w-0 border-0 p-0">
+          <MaquinaAccionesBaja v-if="maquinaBaja" :key="maquinaBaja.id" :id="maquinaBaja.id"
+            :nombre="maquinaBaja.nombre" :activo="maquinaBaja.activo" @completado="alCompletarBaja"
+            @ocupado="procesandoBaja = $event" />
+        </fieldset>
       </div>
     </div>
   </dialog>
+  <CambiarLocalModal v-if="mostrandoCambioLocal && maquinaBaja" :key="maquinaBaja.id" :maquina="maquinaBaja"
+    :locales="destinosCambioLocal" @cancelar="mostrandoCambioLocal = false" @reasignada="alReasignarDesdeFicha" />
   <CategoriasMaquinaModal v-if="mostrarCategorias" @cerrar="mostrarCategorias = false"
     @actualizado="catalogo.cargar()" />
   <CrearMaquinaModal v-if="mostrarCrearMaquina" @cerrar="mostrarCrearMaquina = false" @creada="alCrearMaquina" />

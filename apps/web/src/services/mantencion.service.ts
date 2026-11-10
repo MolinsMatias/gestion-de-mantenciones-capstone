@@ -5,6 +5,7 @@ interface Mantencion {
   local_id: string | null
   maquina_id: string | null
   tipo: string | null
+  tecnico_id: string | null
   estado: string | null
   estado_equipo_final: string | null
   recibida_at: string | null
@@ -15,6 +16,7 @@ export interface MaquinaMantencion { id: string; nombre: string; codigo_interno:
 export interface FilaMantencion extends Mantencion {
   local: LocalMantencion | null
   maquina: MaquinaMantencion | null
+  tecnico: string | null
 }
 
 export const POR_PAGINA = 20
@@ -49,16 +51,17 @@ export async function obtenerMaquinasDelHistorialLocal(localId: string, signal: 
 }
 
 export async function obtenerMantenciones(
-  filtros: { pagina: number; localId: string; maquinaId?: string; tipo: string, estado: string },
+  filtros: { pagina: number; localId: string; maquinaId?: string; tipo: string, estado: string, tecnicoId?: string },
   locales: LocalMantencion[],
   signal: AbortSignal,
 ): Promise<{ filas: FilaMantencion[]; total: number }> {
   const desde = (filtros.pagina - 1) * POR_PAGINA
   let consulta = supabase.from('mantencion')
-    .select('id,local_id,maquina_id,tipo,estado,estado_equipo_final,recibida_at,finalizada_at', { count: 'exact' })
+    .select('id,local_id,maquina_id,tipo,tecnico_id,estado,estado_equipo_final,recibida_at,finalizada_at', { count: 'exact' })
     .eq('estado', 'enviada').not('finalizada_at', 'is', null)
   if (filtros.localId) consulta = consulta.eq('local_id', filtros.localId)
   if (filtros.maquinaId) consulta = consulta.eq('maquina_id', filtros.maquinaId)
+  if (filtros.tecnicoId) { consulta = consulta.eq('tecnico_id', filtros.tecnicoId) }
   if (filtros.tipo) consulta = consulta.eq('tipo', filtros.tipo)
   if (filtros.estado) consulta = consulta.eq('estado_equipo_final', filtros.estado)
   const { data, count, error } = await consulta
@@ -75,6 +78,31 @@ export async function obtenerMantenciones(
     if (resultado.error) throw resultado.error
     for (const maquina of resultado.data) maquinas.set(maquina.id, maquina)
   }
+  const idsTecnicos = [...new Set(
+    registros.map(fila => fila.tecnico_id).filter((id): id is string => Boolean(id)),
+  )]
+  const tecnicosPorId = new Map<string, string>()
+
+  if (idsTecnicos.length) {
+    const { data: tecnicos, error: errorTecnicos } = await supabase
+      .from('usuario')
+      .select('id,nombre,segundo_nombre,apellido_paterno,apellido_materno')
+      .in('id', idsTecnicos)
+      .abortSignal(signal)
+
+    if (errorTecnicos) throw errorTecnicos
+
+    for (const tecnico of tecnicos ?? []) {
+      const nombre = [
+        tecnico.nombre,
+        tecnico.segundo_nombre,
+        tecnico.apellido_paterno,
+        tecnico.apellido_materno,
+      ].map(parte => parte?.trim()).filter(Boolean).join(' ')
+
+      if (nombre) tecnicosPorId.set(tecnico.id, nombre)
+    }
+  }
   const localesPorId = new Map(locales.map(local => [local.id, local]))
   return {
     total: count ?? 0,
@@ -82,6 +110,7 @@ export async function obtenerMantenciones(
       ...fila,
       local: localesPorId.get(fila.local_id ?? '') ?? null,
       maquina: maquinas.get(fila.maquina_id ?? '') ?? null,
+      tecnico: tecnicosPorId.get(fila.tecnico_id ?? '') ?? null,
     })),
   }
 }
@@ -176,4 +205,43 @@ export async function obtenerEnlaceEvidencia(ruta: string): Promise<string> {
   const { data, error } = await supabase.storage.from(bucketEvidencias).createSignedUrl(ruta, 60)
   if (error) throw error
   return data.signedUrl
+}
+export async function obtenerTecnicosMantenciones(signal: AbortSignal) {
+  const registros = await leerDetallePaginado<{ tecnico_id: string }>(
+    (desde, hasta) => supabase
+      .from('mantencion')
+      .select('tecnico_id')
+      .eq('estado', 'enviada')
+      .not('finalizada_at', 'is', null)
+      .not('tecnico_id', 'is', null)
+      .order('id')
+      .range(desde, hasta)
+      .abortSignal(signal),
+  )
+
+  const ids = [...new Set(registros.map(fila => fila.tecnico_id))]
+  const opciones: { id: string; nombre: string }[] = []
+
+  for (let desde = 0; desde < ids.length; desde += 100) {
+    const { data, error } = await supabase
+      .from('usuario')
+      .select('id,nombre,segundo_nombre,apellido_paterno,apellido_materno')
+      .in('id', ids.slice(desde, desde + 100))
+      .abortSignal(signal)
+
+    if (error) throw error
+
+    for (const usuario of data ?? []) {
+      const nombre = [
+        usuario.nombre,
+        usuario.segundo_nombre,
+        usuario.apellido_paterno,
+        usuario.apellido_materno,
+      ].map(parte => parte?.trim()).filter(Boolean).join(' ')
+
+      if (nombre) opciones.push({ id: usuario.id, nombre })
+    }
+  }
+
+  return opciones.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es-CL'))
 }

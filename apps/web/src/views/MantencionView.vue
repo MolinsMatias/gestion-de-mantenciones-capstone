@@ -5,7 +5,7 @@ import CargaSeccion from '../components/layout/CargaSeccion.vue'
 import { useCargaInicial } from '../composables/useCargaInicial'
 import {
   etiquetaMantencion, fechaMantencion, obtenerLocalesMantenciones, obtenerMaquinasMantenciones, obtenerMaquinasDelHistorialLocal, obtenerMantenciones, POR_PAGINA,
-  type FilaMantencion, type LocalMantencion, type MaquinaMantencion,
+  type FilaMantencion, type LocalMantencion, type MaquinaMantencion, obtenerTecnicosMantenciones
 } from '../services/mantencion.service'
 
 const filas = ref<FilaMantencion[]>([])
@@ -16,6 +16,8 @@ const localId = ref('')
 const tipo = ref('')
 const estado = ref('')
 const maquinaId = ref('')
+const tecnicoId = ref('')
+const tecnicos = ref<{ id: string; nombre: string }[]>([])
 const historialLocal = ref<{ localId: string; ids: Set<string> } | null>(null)
 const opcionesMaquinaListas = computed(() => !localId.value || historialLocal.value?.localId === localId.value)
 const maquinasDisponibles = computed(() => {
@@ -25,6 +27,7 @@ const maquinasDisponibles = computed(() => {
     ? maquinas.value.filter(maquina => historial.ids.has(maquina.id))
     : []
 })
+
 const pagina = ref(1)
 const total = ref(0)
 const cargando = ref(false)
@@ -33,7 +36,7 @@ const error = ref('')
 const paginas = computed(() => Math.max(1, Math.ceil(total.value / POR_PAGINA)))
 let controller: AbortController | undefined
 
-async function cargar(destino: number, filtros = { localId: localId.value, maquinaId: maquinaId.value, tipo: tipo.value, estado: estado.value }, recargarCatalogos = false) {
+async function cargar(destino: number, filtros = { localId: localId.value, maquinaId: maquinaId.value, tipo: tipo.value, estado: estado.value, tecnicoId: tecnicoId.value }, recargarCatalogos = false) {
   controller?.abort()
   const actual = new AbortController()
   controller = actual
@@ -43,8 +46,9 @@ async function cargar(destino: number, filtros = { localId: localId.value, maqui
     const recargar = recargarCatalogos || !cargado.value
     const local = filtros.localId
     const historial = historialLocal.value
-    const [opciones, equipos, ids] = await Promise.all([
+    const [opciones, opcionesTecnicos, equipos, ids] = await Promise.all([
       recargar ? obtenerLocalesMantenciones(actual.signal) : locales.value,
+      recargar ? obtenerTecnicosMantenciones(actual.signal) : tecnicos.value,
       recargar ? obtenerMaquinasMantenciones(actual.signal) : maquinas.value,
       !local ? null
         : !recargar && historial?.localId === local ? historial.ids
@@ -59,6 +63,7 @@ async function cargar(destino: number, filtros = { localId: localId.value, maqui
     }
     if (actual.signal.aborted) return
     locales.value = opciones
+    tecnicos.value = opcionesTecnicos
     maquinas.value = equipos
     historialLocal.value = ids ? { localId: local, ids } : null
     filas.value = resultado.filas
@@ -76,7 +81,7 @@ async function cargar(destino: number, filtros = { localId: localId.value, maqui
 
 // El filtro de máquina anterior no debe aplicarse al cambiar de recinto.
 watch(localId, () => { maquinaId.value = '' }, { flush: 'sync' })
-watch([localId, maquinaId, tipo, estado], () => {
+watch([localId, maquinaId, tipo, estado, tecnicoId], () => {
   void cargar(1)
 })
 
@@ -123,6 +128,15 @@ onScopeDispose(() => controller?.abort())
             </select>
           </label>
           <label class="grid gap-1 text-sm font-medium text-slate-700">
+            Técnico
+            <select v-model="tecnicoId" class="rounded-lg border border-slate-300 bg-white p-2">
+              <option value="">Todos los técnicos</option>
+              <option v-for="tecnico in tecnicos" :key="tecnico.id" :value="tecnico.id">
+                {{ tecnico.nombre }}
+              </option>
+            </select>
+          </label>
+          <label class="grid gap-1 text-sm font-medium text-slate-700">
             Tipo
             <select v-model="tipo" class="rounded-lg border border-slate-300 bg-white p-2">
               <option value="">Todos los tipos</option>
@@ -142,7 +156,7 @@ onScopeDispose(() => controller?.abort())
           </label>
           <button v-if="localId || maquinaId || tipo || estado" type="button"
             class="px-2 py-2 text-sm font-semibold text-blue-700 hover:underline"
-            @click="localId = ''; maquinaId = ''; tipo = ''; estado = ''">
+            @click="localId = ''; maquinaId = ''; tipo = ''; estado = ''; tecnicoId = ''">
             Limpiar filtros
           </button>
           <p role="status" class="py-2 text-sm text-slate-500">{{ cargando ? 'Buscando mantenciones…' : '' }}</p>
@@ -154,6 +168,7 @@ onScopeDispose(() => controller?.abort())
                 <th scope="col" class="p-3">Finalizada (Chile)</th>
                 <th scope="col" class="p-3">Local registrado</th>
                 <th scope="col" class="p-3">Máquina</th>
+                <th scope="col" class="p-3">Técnico</th>
                 <th scope="col" class="p-3">Tipo</th>
                 <th scope="col" class="p-3">Estado final</th>
                 <th scope="col" class="p-3">Detalle</th>
@@ -169,6 +184,7 @@ onScopeDispose(() => controller?.abort())
                     {{ fila.maquina.codigo_interno }}
                   </span>
                 </td>
+                <td class="p-3">{{ fila.tecnico ?? 'Sin registro' }}</td>
                 <td class="p-3">{{ etiquetaMantencion(fila.tipo) }}</td>
                 <td class="p-3">{{ etiquetaMantencion(fila.estado_equipo_final) }}</td>
                 <td class="p-3">

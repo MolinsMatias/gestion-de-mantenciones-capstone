@@ -1,0 +1,12 @@
+{
+  "imports": {
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2"
+  },
+  "tasks": {
+    "test": "deno test --no-config handler.test.ts",
+    "check": "deno check index.ts handler.ts handler.test.ts run.ts"
+  },
+  "compilerOptions": {
+    "strict": true
+  }
+}

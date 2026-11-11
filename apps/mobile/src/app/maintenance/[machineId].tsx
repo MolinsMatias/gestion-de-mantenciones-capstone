@@ -7,7 +7,6 @@ import {
   Keyboard,
   Easing,
   useWindowDimensions,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   Text,
@@ -543,13 +542,8 @@ export default function MaintenanceScreen() {
     changeStep(activeStep + 1);
   };
 
-  const ScreenContainer = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
-
   return (
-    <ScreenContainer
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      className="flex-1 bg-slate-50"
-    >
+    <View className="flex-1 bg-slate-50">
       <MaintenanceHeader
         title={stepTitle}
         step={activeStep + 1}
@@ -945,6 +939,6 @@ export default function MaintenanceScreen() {
         isLastStep={isLastStep}
       />
       <MaintenanceFeedbackDialog feedback={feedback} onConfirm={handleFeedbackConfirm} />
-    </ScreenContainer>
+    </View>
   );
 }

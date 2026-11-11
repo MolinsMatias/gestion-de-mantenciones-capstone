@@ -3,8 +3,9 @@ import '@/global.css';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, type Theme } from 'expo-router';
 import { NavigationBar } from 'expo-navigation-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import React, { useEffect } from 'react';
+import React, { useEffect, useLayoutEffect } from 'react';
 import { LogBox, Platform, StatusBar, useColorScheme } from 'react-native';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import { useSupabaseSessionRefresh } from '@/hooks/use-supabase-session-refresh';
 import { AuthProvider } from '@/providers/auth-provider';
@@ -35,11 +36,6 @@ const AppDarkTheme: Theme = {
 function syncWebStatusBarMeta(): void {
   if (Platform.OS !== 'web' || typeof document === 'undefined') return;
 
-  document.documentElement.style.backgroundColor = HEADER_STATUS_BAR_COLOR;
-  if (document.body) {
-    document.body.style.backgroundColor = HEADER_STATUS_BAR_COLOR;
-  }
-
   const ensureMeta = (name: string, content: string) => {
     let meta = document.querySelector<HTMLMetaElement>(`meta[name="${name}"]`);
     if (!meta) {
@@ -55,6 +51,32 @@ function syncWebStatusBarMeta(): void {
   ensureMeta('apple-mobile-web-app-status-bar-style', 'black-translucent');
 }
 
+function WebKeyboardViewport() {
+  useLayoutEffect(() => {
+    const viewport = window.visualViewport;
+    const root = document.getElementById('root');
+    if (!viewport || !root) return;
+
+    const update = () => {
+      root.style.setProperty('--keyboard-viewport-top', `${viewport.offsetTop}px`);
+      root.style.setProperty('--keyboard-viewport-height', `${viewport.height}px`);
+    };
+
+    update();
+    viewport.addEventListener('resize', update);
+    viewport.addEventListener('scroll', update);
+
+    return () => {
+      viewport.removeEventListener('resize', update);
+      viewport.removeEventListener('scroll', update);
+      root.style.removeProperty('--keyboard-viewport-top');
+      root.style.removeProperty('--keyboard-viewport-height');
+    };
+  }, []);
+
+  return null;
+}
+
 export default function RootLayout() {
   useSupabaseSessionRefresh();
   const colorScheme = useColorScheme();
@@ -66,33 +88,36 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? AppDarkTheme : AppLightTheme}>
+      {Platform.OS === 'web' ? <WebKeyboardViewport /> : null}
       {Platform.OS === 'android' ? <NavigationBar style="dark" hidden={false} /> : null}
       <StatusBar
         backgroundColor={HEADER_STATUS_BAR_COLOR}
         barStyle="light-content"
         translucent={false}
       />
-      <AuthProvider>
-        <LocalProvider>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: HEADER_STATUS_BAR_COLOR },
-            }}
-          >
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen name="(app)" options={{ headerShown: false }} />
-            <Stack.Screen
-              name="maintenance/[machineId]"
-              options={{
+      <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
+        <AuthProvider>
+          <LocalProvider>
+            <Stack
+              screenOptions={{
                 headerShown: false,
-                animation: 'slide_from_right',
-                contentStyle: { backgroundColor: '#f8fafc' },
+                contentStyle: { backgroundColor: HEADER_STATUS_BAR_COLOR },
               }}
-            />
-          </Stack>
-        </LocalProvider>
-      </AuthProvider>
+            >
+              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+              <Stack.Screen name="(app)" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="maintenance/[machineId]"
+                options={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                  contentStyle: { backgroundColor: '#f8fafc' },
+                }}
+              />
+            </Stack>
+          </LocalProvider>
+        </AuthProvider>
+      </KeyboardProvider>
     </ThemeProvider>
   );
 }

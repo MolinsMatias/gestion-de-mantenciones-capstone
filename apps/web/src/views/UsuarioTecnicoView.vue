@@ -1,21 +1,57 @@
 <script setup lang="ts">
 import { computed, onScopeDispose, ref, watch } from 'vue'
-import UsuarioPerfilDialog from '../components/usuarios/UsuarioPerfilDialog.vue'
+import TecnicoGestionDialog from '../components/tecnico/TecnicoGestionDialog.vue'
 import CargaSeccion from '../components/layout/CargaSeccion.vue'
-import { useCargaInicial } from '../composables/useCargaInicial'
-import { listarUsuarios, type UsuariosPagina, type UsuarioListado } from '../services/usuarios.service'
+import { useCargaInicial } from '../composables/useCargaInicial.ts'
+import { listarTecnicos, type TecnicosPagina, type TecnicoListado } from '../services/tecnico.service'
+import Dialog from 'primevue/dialog'
 
 const busqueda = ref('')
 const mostrarPerfil = ref(false)
-const usuarioSeleccionado = ref<UsuarioListado | null>(null)
+const usuarioSeleccionado = ref<TecnicoListado | null>(null)
 
-function verPerfil(usuario: UsuarioListado) {
+function verPerfil(usuario: TecnicoListado) {
   usuarioSeleccionado.value = usuario
   mostrarPerfil.value = true
 }
-const rol = ref('')
+const mensaje = ref('')
+const mostrarConfirmacion = ref(false)
+const confirmacion = ref({
+  titulo: '',
+  mensaje: '',
+})
+
+async function alGuardar(
+  accion: 'crear' | 'editar' | 'deshabilitar',
+): Promise<void> {
+  // Cierra el formulario de gestión.
+  mostrarPerfil.value = false
+  mensaje.value = ''
+
+  // Prepara el mensaje según la acción completada.
+  confirmacion.value = {
+    crear: {
+      titulo: 'Cuenta creada',
+      mensaje: 'La cuenta del técnico se creó correctamente.',
+    },
+    editar: {
+      titulo: 'Datos actualizados',
+      mensaje: 'Los datos del técnico se guardaron correctamente.',
+    },
+    deshabilitar: {
+      titulo: 'Cuenta deshabilitada',
+      mensaje: 'La cuenta quedó deshabilitada. Su historial se conserva.',
+    },
+  }[accion]
+
+  mostrarConfirmacion.value = true
+
+  // Actualiza el listado.
+  await cargar(accion === 'crear' ? 1 : listado.value.pagina)
+}
+
 const estado = ref<'' | 'activo' | 'inactivo'>('')
-const listado = ref<UsuariosPagina>({ filas: [], roles: [], total: 0, pagina: 1 })
+const listado = ref<TecnicosPagina>({ filas: [], total: 0, pagina: 1 })
 const cargando = ref(false)
 const error = ref('')
 const totalPaginas = computed(() => Math.max(1, Math.ceil(listado.value.total / 20)))
@@ -36,7 +72,7 @@ async function cargar(pagina: number) {
   cargando.value = true
   error.value = ''
   try {
-    const respuesta = await listarUsuarios({ busqueda: busqueda.value, rol: rol.value, estado: estado.value, pagina }, actual.signal)
+    const respuesta = await listarTecnicos({ busqueda: busqueda.value, estado: estado.value, pagina }, actual.signal)
     if (!actual.signal.aborted) listado.value = respuesta
   } catch {
     if (!actual.signal.aborted) error.value = 'No se pudo cargar el listado. Comprueba tus permisos o vuelve a intentar.'
@@ -45,7 +81,7 @@ async function cargar(pagina: number) {
   }
 }
 
-watch([busqueda, rol, estado], ([texto], [anterior]) => {
+watch([busqueda, estado], ([texto], [anterior]) => {
   clearTimeout(espera)
   controller?.abort()
   cargando.value = true
@@ -62,28 +98,26 @@ onScopeDispose(() => { clearTimeout(espera); controller?.abort() })
   <section aria-labelledby="titulo-usuarios">
     <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h1 id="titulo-usuarios" class="text-2xl font-bold text-slate-900">Usuarios y técnicos</h1>
-        <p class="mt-1 text-sm text-slate-600">Consulta los perfiles registrados, sus roles y su estado de acceso.</p>
+        <h1 id="titulo-usuarios" class="text-2xl font-bold text-slate-900">Técnicos</h1>
+        <p class="mt-1 text-sm text-slate-600">Administra las cuentas del personal de terreno.</p>
       </div>
-      <button type="button" :disabled="cargando || mostrandoCargaInicial"
-        class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-50"
-        @click="cargar(error ? 1 : listado.pagina)">Actualizar</button>
+      <div class="col-span-2 flex gap-2">
+        <button type="button" :disabled="cargando || mostrandoCargaInicial"
+          class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-50"
+          @click="cargar(error ? 1 : listado.pagina)">Actualizar</button>
+        <button type="button" :disabled="mostrandoCargaInicial"
+          class="rounded-lg bg-blue-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          @click="usuarioSeleccionado = null; mostrarPerfil = true">Agregar técnico</button>
+      </div>
     </header>
 
-    <CargaSeccion v-if="mostrandoCargaInicial" variante="tabla" mensaje="Cargando usuarios…" />
+    <CargaSeccion v-if="mostrandoCargaInicial" variante="tabla" mensaje="Cargando técnicos…" />
     <template v-else>
       <div class="mb-4 flex flex-wrap items-end gap-3">
         <label class="grid gap-1 text-sm font-medium text-slate-700">
           Buscar por nombre
           <input v-model="busqueda" type="search" maxlength="100"
             class="rounded-lg border border-slate-300 bg-white p-2" />
-        </label>
-        <label class="grid gap-1 text-sm font-medium text-slate-700">
-          Rol
-          <select v-model="rol" class="rounded-lg border border-slate-300 bg-white p-2">
-            <option value="">Todos los roles</option>
-            <option v-for="opcion in listado.roles" :key="opcion.id" :value="opcion.id">{{ opcion.nombre }}</option>
-          </select>
         </label>
         <label class="grid gap-1 text-sm font-medium text-slate-700">
           Estado
@@ -93,19 +127,19 @@ onScopeDispose(() => { clearTimeout(espera); controller?.abort() })
             <option value="inactivo">Inactivos</option>
           </select>
         </label>
-        <button v-if="busqueda || rol || estado" type="button"
+        <button v-if="busqueda || estado" type="button"
           class="px-2 py-2 text-sm font-semibold text-blue-700 hover:underline"
-          @click="busqueda = ''; rol = ''; estado = ''">Limpiar filtros</button>
+          @click="busqueda = ''; estado = ''">Limpiar filtros</button>
       </div>
+      <p v-if="mensaje" role="status" class="mb-3 text-sm text-emerald-700">{{ mensaje }}</p>
       <p v-if="error" role="alert" class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>
-      <p role="status" class="mb-2 text-sm text-slate-600">{{ cargando ? 'Buscando usuarios…' : error ? '' :
+      <p role="status" class="mb-2 text-sm text-slate-600">{{ cargando ? 'Buscando técnicos…' : error ? '' :
         `${listado.total} resultados` }}</p>
       <div :aria-busy="cargando" class="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
         <table class="w-full text-left text-sm text-slate-800">
           <thead class="bg-slate-50">
             <tr>
               <th scope="col" class="p-3">Nombre</th>
-              <th scope="col" class="p-3">Rol</th>
               <th scope="col" class="p-3">Estado</th>
               <th scope="col" class="p-3">Registro (Chile)</th>
               <th scope="col" class="p-3">Acción</th>
@@ -114,7 +148,6 @@ onScopeDispose(() => { clearTimeout(espera); controller?.abort() })
           <tbody>
             <tr v-for="usuario in listado.filas" :key="usuario.id" class="border-t border-slate-100">
               <td class="p-3 font-medium">{{ usuario.nombre || 'Sin nombre' }}</td>
-              <td class="p-3">{{ usuario.rol || 'Sin rol' }}</td>
               <td class="p-3"><span class="rounded-full px-2 py-1 text-xs font-semibold"
                   :class="usuario.activo === true ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-700'">
                   {{ usuario.activo === true ? 'Activo' : usuario.activo === false ? 'Inactivo' : 'Sin definir' }}
@@ -122,12 +155,12 @@ onScopeDispose(() => { clearTimeout(espera); controller?.abort() })
               <td class="p-3">{{ fechaRegistro(usuario.created_at) }}</td>
               <td class="p-3">
                 <button type="button" class="whitespace-nowrap font-semibold text-blue-700 hover:underline"
-                  :aria-label="usuario.nombre ? 'Ver perfil de ' + usuario.nombre : 'Ver perfil de usuario sin nombre'"
-                  @click="verPerfil(usuario)">Ver perfil</button>
+                  :aria-label="usuario.nombre ? 'Gestionar a ' + usuario.nombre : 'Gestionar técnico sin nombre'"
+                  @click="verPerfil(usuario)">Gestionar</button>
               </td>
             </tr>
             <tr v-if="!listado.filas.length && !error && !cargando">
-              <td colspan="5" class="p-8 text-center text-slate-500">No hay usuarios para estos filtros.</td>
+              <td colspan="4" class="p-8 text-center text-slate-500">No hay técnicos para estos filtros.</td>
             </tr>
           </tbody>
         </table>
@@ -145,7 +178,21 @@ onScopeDispose(() => { clearTimeout(espera); controller?.abort() })
         </div>
       </nav>
     </template>
-    <UsuarioPerfilDialog v-model:visible="mostrarPerfil" :usuario="usuarioSeleccionado"
-      :fecha-registro="fechaRegistro(usuarioSeleccionado?.created_at ?? null)" />
+    <TecnicoGestionDialog v-if="mostrarPerfil" :key="usuarioSeleccionado?.id ?? 'nuevo'" :tecnico="usuarioSeleccionado"
+      @cerrar="mostrarPerfil = false" @guardado="alGuardar" />
+    <Dialog v-model:visible="mostrarConfirmacion" modal block-scroll :header="confirmacion.titulo"
+      :style="{ width: 'min(28rem, calc(100vw - 2rem))' }">
+      <p class="text-sm text-slate-700">
+        {{ confirmacion.mensaje }}
+      </p>
+
+      <template #footer>
+        <button type="button" autofocus
+          class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          @click="mostrarConfirmacion = false">
+          Entendido
+        </button>
+      </template>
+    </Dialog>
   </section>
 </template>

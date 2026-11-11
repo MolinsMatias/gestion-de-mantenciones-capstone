@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import {
-  ArrowRightStartOnRectangleIcon, CubeIcon, ChartBarSquareIcon, RectangleStackIcon, WrenchIcon, UserGroupIcon
+  ArrowRightStartOnRectangleIcon, CubeIcon, ChartBarSquareIcon, RectangleStackIcon, WrenchIcon, UserGroupIcon, ClipboardDocumentListIcon
 } from '@heroicons/vue/24/outline'
 
 defineProps<{ saliendo: boolean; error: string }>()
@@ -42,6 +42,11 @@ defineEmits<{ salir: [] }>()
         active-class="bg-blue-600 shadow-lg shadow-blue-950/30">
         <UserGroupIcon class="size-5" aria-hidden="true" />
         Tecnicos
+      </RouterLink>
+      <RouterLink to="/informes/generar" class="mt-2 flex items-center gap-3 rounded-xl px-4 py-3 font-semibold"
+        active-class="bg-blue-600 shadow-lg shadow-blue-950/30">
+        <ClipboardDocumentListIcon class="size-5" aria-hidden="true" />
+        Informes
       </RouterLink>
     </nav>
     <div class="mt-6 lg:mt-auto">

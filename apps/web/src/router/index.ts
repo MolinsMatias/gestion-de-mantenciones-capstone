@@ -39,6 +39,11 @@ const router = createRouter({
           path: 'usuario_tecnico',
           name: 'usuario_tecnico',
           component: () => import('../views/UsuarioTecnicoView.vue'),
+        },
+        {
+          path: 'informes/generar',
+          name: 'generar-informe',
+          component: () => import('../views/GenerarInformeView.vue'),
         }
       ],
     },

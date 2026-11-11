@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { RouterLink } from 'vue-router'
 import { computed, onScopeDispose, ref, watch } from 'vue'
+import ExportarHistorialDialog from '../components/mantencion/ExportarHistorialDialog.vue'
+import type { FiltrosHistorial } from '../types/exportacion'
 import MantencionDetalle from '../components/mantencion/MantencionDetalle.vue'
 import CargaSeccion from '../components/layout/CargaSeccion.vue'
 import { useCargaInicial } from '../composables/useCargaInicial'
@@ -7,6 +10,12 @@ import {
   etiquetaMantencion, fechaMantencion, obtenerLocalesMantenciones, obtenerMaquinasMantenciones, obtenerMaquinasDelHistorialLocal, obtenerMantenciones, POR_PAGINA,
   type FilaMantencion, type LocalMantencion, type MaquinaMantencion, obtenerTecnicosMantenciones
 } from '../services/mantencion.service'
+
+const filtrosExportacion = ref<FiltrosHistorial | null>(null)
+function abrirExportacion() {
+  if (cargando.value || !cargado.value || error.value) return
+  filtrosExportacion.value = { localId: localId.value, maquinaId: maquinaId.value, tipo: tipo.value, estado: estado.value, tecnicoId: tecnicoId.value }
+}
 
 const filas = ref<FilaMantencion[]>([])
 const locales = ref<LocalMantencion[]>([])
@@ -96,11 +105,20 @@ onScopeDispose(() => controller?.abort())
         <h1 id="titulo-mantenciones" class="text-2xl font-bold text-slate-900">Mantenciones</h1>
         <p class="mt-1 text-sm text-slate-600">Consulta los registros recibidos desde la app del técnico.</p>
       </div>
-      <button type="button" :disabled="cargando || mostrandoCargaInicial"
-        class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 disabled:opacity-50"
-        @click="cargar(error ? 1 : pagina, undefined, true)">
-        {{ cargando && !mostrandoCargaInicial ? 'Actualizando…' : 'Actualizar' }}
-      </button>
+      <div class="flex flex-wrap gap-3">
+        <button type="button" :disabled="cargando || mostrandoCargaInicial"
+          class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 disabled:opacity-50"
+          @click="cargar(error ? 1 : pagina, undefined, true)">
+          {{ cargando && !mostrandoCargaInicial ? 'Actualizando…' : 'Actualizar' }}
+        </button>
+        <button type="button" :disabled="cargando || mostrandoCargaInicial || !cargado || !!error"
+          class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          @click="abrirExportacion">Exportar historial</button>
+        <RouterLink :to="{ name: 'generar-informe', query: localId ? { local: localId } : {} }"
+          class="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700">
+          Generar informe
+        </RouterLink>
+      </div>
     </header>
     <CargaSeccion v-if="mostrandoCargaInicial" variante="tabla" mensaje="Cargando mantenciones…" />
     <template v-else>
@@ -154,7 +172,7 @@ onScopeDispose(() => controller?.abort())
               <option value="fuera_de_servicio">Fuera de servicio</option>
             </select>
           </label>
-          <button v-if="localId || maquinaId || tipo || estado" type="button"
+          <button v-if="localId || maquinaId || tipo || estado || tecnicoId" type="button"
             class="px-2 py-2 text-sm font-semibold text-blue-700 hover:underline"
             @click="localId = ''; maquinaId = ''; tipo = ''; estado = ''; tecnicoId = ''">
             Limpiar filtros
@@ -194,7 +212,7 @@ onScopeDispose(() => controller?.abort())
                 </td>
               </tr>
               <tr v-if="!filas.length && !error">
-                <td colspan="6" class="p-8 text-center text-slate-600">No hay registros para estos filtros.</td>
+                <td colspan="7" class="p-8 text-center text-slate-600">No hay registros para estos filtros.</td>
               </tr>
             </tbody>
           </table>
@@ -211,6 +229,8 @@ onScopeDispose(() => controller?.abort())
         </nav>
       </template>
     </template>
+    <ExportarHistorialDialog v-if="filtrosExportacion" :filtros="filtrosExportacion"
+      @cerrar="filtrosExportacion = null" />
     <MantencionDetalle v-if="seleccion" :fila="seleccion" @cerrar="seleccion = null" />
   </section>
 </template>

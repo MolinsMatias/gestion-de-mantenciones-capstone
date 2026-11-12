@@ -13,15 +13,39 @@ const CHECKLIST_CACHE_PREFIX = '@bowling_services/checklist_cache';
 const DRAFT_CACHE_PREFIX = '@bowling_services/maintenance_draft';
 const PENDING_MAINTENANCE_PREFIX = '@bowling_services/pending_maintenance';
 const pendingSends = new Map<string, Promise<void>>();
+const pendingListeners = new Set<(technicianId: string) => void>();
 
 interface PendingMaintenance {
   draft: MaintenanceDraft;
   finalizedAt: string;
+  machine?: { name: string; code: string; categoryId: string; categoryName: string };
+}
+
+export function subscribeToPendingMaintenances(listener: (technicianId: string) => void) {
+  pendingListeners.add(listener);
+  return () => {
+    pendingListeners.delete(listener);
+  };
 }
 
 async function getPendingMaintenanceKeys(technicianId: string) {
   const prefix = `${PENDING_MAINTENANCE_PREFIX}:${technicianId}:`;
   return (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith(prefix));
+}
+
+export async function readPendingMaintenances(technicianId: string): Promise<PendingMaintenance[]> {
+  const keys = await getPendingMaintenanceKeys(technicianId);
+  if (!keys.length) return [];
+  const records = await AsyncStorage.multiGet(keys);
+  return records.flatMap(([, raw]) => {
+    if (!raw) return [];
+    try {
+      const pending = JSON.parse(raw) as PendingMaintenance;
+      return pending?.draft?.mantencion_id && pending.finalizedAt ? [pending] : [];
+    } catch {
+      return [];
+    }
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -306,6 +330,7 @@ function syncPendingMaintenance(key: string, technicianId: string): Promise<void
     const pending = JSON.parse(raw) as PendingMaintenance;
     await sendMaintenance(pending, technicianId);
     await AsyncStorage.removeItem(key);
+    pendingListeners.forEach((listener) => listener(technicianId));
   })().finally(() => pendingSends.delete(key));
 
   pendingSends.set(key, send);
@@ -327,10 +352,12 @@ export async function submitMaintenanceRecord(
   draft: MaintenanceDraft,
   technicianId: string,
   isOnline: boolean,
+  machine?: PendingMaintenance['machine'],
 ): Promise<SubmitMaintenanceResult> {
   const key = `${PENDING_MAINTENANCE_PREFIX}:${technicianId}:${draft.mantencion_id.toLowerCase()}`;
-  const pending: PendingMaintenance = { draft, finalizedAt: new Date().toISOString() };
+  const pending: PendingMaintenance = { draft, finalizedAt: new Date().toISOString(), machine };
   await AsyncStorage.setItem(key, JSON.stringify(pending));
+  pendingListeners.forEach((listener) => listener(technicianId));
   await clearMaintenanceDraft(draft.maquina_id);
 
   if (isOnline) {

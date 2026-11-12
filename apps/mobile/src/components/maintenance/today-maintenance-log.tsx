@@ -16,11 +16,11 @@ const TYPE_LABELS: Record<string, string> = {
 function formatDuration(
   iniciadaAt: string,
   finalizadaAt: string | null,
-  enviadaAt: string,
+  enviadaAt: string | null,
 ): string {
-  if (!iniciadaAt) return '';
+  if (!iniciadaAt || !(finalizadaAt ?? enviadaAt)) return '';
   const start = new Date(iniciadaAt).getTime();
-  const end = new Date(finalizadaAt || enviadaAt).getTime();
+  const end = new Date(finalizadaAt ?? enviadaAt ?? '').getTime();
   if (isNaN(start) || isNaN(end) || end < start) return '';
   const diffMinutes = Math.max(1, Math.round((end - start) / (1000 * 60)));
   return `${diffMinutes} min`;
@@ -162,10 +162,9 @@ export function TodayMaintenanceList({
                 titulo: `${item.codigo_interno} · ${item.titulo}`,
                 categoria: categoriaText,
                 ubicacion: activeLocal?.nombre ?? '',
-                etiqueta_tiempo: new Date(item.finalizada_at ?? item.enviada_at).toLocaleTimeString(
-                  'es-CL',
-                  { hour: '2-digit', minute: '2-digit' },
-                ),
+                etiqueta_tiempo: new Date(
+                  item.finalizada_at ?? item.enviada_at ?? item.iniciada_at,
+                ).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
               }}
               showStatusLabel={false}
               onPress={() => setSelected({ scope, record: item })}

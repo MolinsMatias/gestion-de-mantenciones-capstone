@@ -119,7 +119,7 @@ export function MaintenanceCard(props: MaintenanceCardProps) {
     <Pressable
       onPress={() => onPress?.(item)}
       accessibilityRole="button"
-      accessibilityLabel={`${item.titulo}, ${item.categoria}, ${item.ubicacion}, registrado el ${item.etiqueta_tiempo}${status ? `, estado final: ${status.label}` : ''}`}
+      accessibilityLabel={`${item.titulo}, ${item.categoria}, ${item.ubicacion}, registrado el ${item.etiqueta_tiempo}${status ? `, estado final: ${status.label}` : ''}${item.pendiente_envio ? ', guardada en el dispositivo, pendiente de envío' : ''}`}
       accessibilityHint="Toca para ver los detalles de esta mantención"
       className="mb-3 flex-row items-center rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm active:bg-slate-50/90"
       style={onPress ? { cursor: 'pointer' } : undefined}
@@ -177,6 +177,11 @@ export function MaintenanceCard(props: MaintenanceCardProps) {
               {status.label}
             </Text>
           </View>
+        ) : null}
+        {item.pendiente_envio ? (
+          <Text className="mt-2 text-xs font-semibold text-amber-800">
+            Guardada en el dispositivo · Pendiente de envío
+          </Text>
         ) : null}
       </View>
 

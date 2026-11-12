@@ -1,16 +1,24 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNetworkStatus } from '@/providers/network-provider';
+import { subscribeToPendingMaintenances } from '@/services/checklists';
 import {
   fetchHistoryPage,
   readHistoryCache,
+  readPendingHistory,
   HISTORY_PAGE_SIZE,
 } from '@/services/maintenance-history';
-import type { HistoryPage, HistoryQuery } from '@/types/maintenance';
+import type { HistoryPage, HistoryQuery, HistoryRecord } from '@/types/maintenance';
 
 const EMPTY: HistoryPage = { items: [], totalCount: 0, hasMore: false };
 
-export function useMaintenanceHistory(query: HistoryQuery) {
+export function useMaintenanceHistory(query: HistoryQuery, includePending = false) {
+  const { isOnline } = useNetworkStatus();
   const key = JSON.stringify(query);
+  const [pending, setPending] = useState<{ key: string; items: HistoryRecord[] }>({
+    key: '',
+    items: [],
+  });
   const [state, setState] = useState({
     key: '',
     page: EMPTY,
@@ -48,30 +56,41 @@ export function useMaintenanceHistory(query: HistoryQuery) {
         key,
         page: initial || previous.key !== key ? EMPTY : previous.page,
         loading: initial,
-        refreshing: !initial,
+        refreshing: !initial && isOnline,
         loadingMore: false,
         cached: initial ? false : previous.cached,
         error: null,
       }));
-      if (initial) {
-        pageRef.current = EMPTY;
-        const cached = await readHistoryCache(options);
+      let pendingItems: HistoryRecord[] | null = null;
+      if (initial || !isOnline || includePending) {
+        const [cached, localItems] = await Promise.all([
+          initial || !isOnline ? readHistoryCache(options) : Promise.resolve(null),
+          includePending ? readPendingHistory(options).catch(() => null) : Promise.resolve(null),
+        ]);
         if (version !== generation.current) return;
-        if (cached) {
-          pageRef.current = cached;
-          offsetRef.current = cached.items.length;
+        pendingItems = localItems;
+        if (pendingItems && (initial || !isOnline)) setPending({ key, items: pendingItems });
+        if (initial || !isOnline) {
+          const localPage = cached ?? EMPTY;
+          pageRef.current = localPage;
+          offsetRef.current = localPage.items.length;
           setState((previous) => ({
             ...previous,
-            page: cached,
-            cached: true,
-            loading: false,
-            refreshing: true,
+            page: localPage,
+            cached: Boolean(cached),
+            loading: isOnline && !cached && !pendingItems?.length,
+            refreshing: isOnline && Boolean(cached),
           }));
         }
+      }
+      if (!isOnline) {
+        busy.current = false;
+        return;
       }
       try {
         const page = await fetchHistoryPage(options);
         if (version !== generation.current) return;
+        if (pendingItems) setPending({ key, items: pendingItems });
         pageRef.current = page;
         offsetRef.current = page.items.length;
         setState({
@@ -85,6 +104,7 @@ export function useMaintenanceHistory(query: HistoryQuery) {
         });
       } catch (error) {
         if (version !== generation.current) return;
+        if (pendingItems) setPending({ key, items: pendingItems });
         setState((previous) => ({
           ...previous,
           loading: false,
@@ -96,17 +116,23 @@ export function useMaintenanceHistory(query: HistoryQuery) {
         if (version === generation.current) busy.current = false;
       }
     },
-    [key],
+    [includePending, isOnline, key],
   );
 
   useFocusEffect(
     useCallback(() => {
       void refresh(true);
+      const unsubscribe = includePending
+        ? subscribeToPendingMaintenances((technicianId) => {
+            if (technicianId === query.userId) void refresh();
+          })
+        : undefined;
       return () => {
+        unsubscribe?.();
         ++generation.current;
         busy.current = false;
       };
-    }, [refresh]),
+    }, [includePending, query.userId, refresh]),
   );
   useEffect(
     () => () => {
@@ -116,7 +142,7 @@ export function useMaintenanceHistory(query: HistoryQuery) {
   );
 
   const loadMore = useCallback(async () => {
-    if (busy.current || !pageRef.current.hasMore) return;
+    if (!isOnline || busy.current || !pageRef.current.hasMore) return;
     busy.current = true;
     const version = generation.current;
     setState((previous) => ({ ...previous, loadingMore: true, error: null }));
@@ -141,7 +167,21 @@ export function useMaintenanceHistory(query: HistoryQuery) {
     } finally {
       if (version === generation.current) busy.current = false;
     }
-  }, [key]);
+  }, [isOnline, key]);
   const visible = state.key === key ? state : { ...state, page: EMPTY, loading: true, error: null };
-  return { ...visible, refresh: () => refresh(false), loadMore, pageSize: HISTORY_PAGE_SIZE };
+  const page = useMemo(() => {
+    if (pending.key !== key || !pending.items.length) return visible.page;
+    const sentIds = new Set(visible.page.items.map((item) => item.id.toLowerCase()));
+    const localItems = pending.items.filter((item) => !sentIds.has(item.id.toLowerCase()));
+    const completedAt = (item: HistoryRecord) =>
+      item.finalizada_at ?? item.enviada_at ?? item.iniciada_at;
+    return {
+      ...visible.page,
+      totalCount: visible.page.totalCount + localItems.length,
+      items: [...visible.page.items, ...localItems].sort(
+        (a, b) => Date.parse(completedAt(b)) - Date.parse(completedAt(a)),
+      ),
+    };
+  }, [key, pending, visible.page]);
+  return { ...visible, page, refresh: () => refresh(false), loadMore, pageSize: HISTORY_PAGE_SIZE };
 }

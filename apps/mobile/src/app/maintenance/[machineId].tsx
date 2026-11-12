@@ -412,7 +412,19 @@ export default function MaintenanceScreen() {
     }
     try {
       await saveMaintenanceDraft(currentDraft);
-      const result = await submitMaintenanceRecord(currentDraft, tecnicoId, isOnline);
+      const result = await submitMaintenanceRecord(
+        currentDraft,
+        tecnicoId,
+        isOnline,
+        machine
+          ? {
+              name: machine.nombre,
+              code: machine.codigo_interno,
+              categoryId: machine.categoria_id,
+              categoryName: machine.categoria.nombre,
+            }
+          : undefined,
+      );
       if (result.exito) {
         setHasUnsavedChanges(false);
         setFeedback({

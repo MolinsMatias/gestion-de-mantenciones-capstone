@@ -19,7 +19,8 @@ import { useMaintenanceHistory } from '@/hooks/use-maintenance-history';
 import { useWebPullToRefresh } from '@/hooks/use-web-pull-to-refresh';
 import { useAuth } from '@/providers/auth-provider';
 import { useLocals } from '@/providers/local-provider';
-import { fetchMachineCategories } from '@/services/machines';
+import { useNetworkStatus } from '@/providers/network-provider';
+import { fetchMachineCategories, getCachedMachineCategories } from '@/services/machines';
 import type { MachineCategory } from '@/types/machine';
 import type { HistoryRecord, HistoryQuery } from '@/types/maintenance';
 
@@ -34,6 +35,7 @@ export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const { activeLocal } = useLocals();
+  const { isOnline } = useNetworkStatus();
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [categoryId, setCategoryId] = useState('');
@@ -48,7 +50,7 @@ export default function HistoryScreen() {
   }, [search]);
   useEffect(() => {
     let mounted = true;
-    void fetchMachineCategories()
+    void (isOnline ? fetchMachineCategories() : getCachedMachineCategories())
       .then((value) => {
         if (mounted) setCategories(value);
       })
@@ -56,16 +58,20 @@ export default function HistoryScreen() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [isOnline]);
   const { page, loading, loadingMore, refreshing, cached, error, refresh, loadMore } =
-    useMaintenanceHistory({
-      userId: session?.user.id ?? '',
-      localId: activeLocal?.id ?? '',
-      categoryId,
-      type,
-      search: debouncedSearch,
-    });
+    useMaintenanceHistory(
+      {
+        userId: session?.user.id ?? '',
+        localId: activeLocal?.id ?? '',
+        categoryId,
+        type,
+        search: debouncedSearch,
+      },
+      true,
+    );
   const { containerRef, pullDistance, isThresholdReached, handleScroll } = useWebPullToRefresh({
+    enabled: isOnline,
     isRefreshing: refreshing,
     onRefresh: refresh,
   });
@@ -75,7 +81,7 @@ export default function HistoryScreen() {
         <MaintenanceCard
           item={{
             ...item,
-            ubicacion: `${item.codigo_interno} · ${activeLocal?.nombre ?? ''}`,
+            ubicacion: [item.codigo_interno, activeLocal?.nombre].filter(Boolean).join(' · '),
             categoria: `${item.categoria} · ${TYPES.find((option) => option.id === item.tipo)?.label ?? item.tipo}`,
           }}
           showStatusLabel
@@ -99,7 +105,7 @@ export default function HistoryScreen() {
   );
   return (
     <View className="flex-1 bg-[#f8fafc]">
-      <AppHeader title="Historial" subtitle="Mis intervenciones enviadas" showConnectivity />
+      <AppHeader title="Historial" subtitle="Mis intervenciones" showConnectivity />
       <View className="border-b border-slate-200 bg-[#f8fafc] py-3">
         <View className="w-full max-w-xl self-center px-4">
           <View className="min-h-12 flex-row items-center rounded-xl border border-slate-200 bg-white px-3">
@@ -203,7 +209,7 @@ export default function HistoryScreen() {
         </View>
       </View>
       <View ref={containerRef} className="flex-1">
-        {Platform.OS === 'web' && (pullDistance > 0 || refreshing) ? (
+        {Platform.OS === 'web' && isOnline && (pullDistance > 0 || refreshing) ? (
           <View
             accessible={true}
             accessibilityRole="progressbar"
@@ -258,12 +264,14 @@ export default function HistoryScreen() {
           }}
           onEndReachedThreshold={0.4}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => void refresh()}
-              tintColor="#2563eb"
-              colors={['#2563eb']}
-            />
+            isOnline ? (
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => void refresh()}
+                tintColor="#2563eb"
+                colors={['#2563eb']}
+              />
+            ) : undefined
           }
           contentContainerStyle={{
             paddingTop: 12,
@@ -292,9 +300,9 @@ export default function HistoryScreen() {
                       ? 'No se pudo cargar el historial.'
                       : !activeLocal
                         ? 'Selecciona un local en Inicio para ver tus intervenciones.'
-                        : 'No tienes intervenciones enviadas que coincidan con estos filtros.'}
+                        : 'No tienes intervenciones que coincidan con estos filtros.'}
                   </Text>
-                  {error ? action('Reintentar', () => void refresh()) : null}
+                  {error && isOnline ? action('Reintentar', () => void refresh()) : null}
                 </View>
               )}
             </View>
@@ -302,14 +310,19 @@ export default function HistoryScreen() {
           ListFooterComponent={
             loadingMore ? (
               <ActivityIndicator accessibilityLabel="Cargando más intervenciones" color="#2563eb" />
-            ) : page.items.length > 0 && page.hasMore ? (
+            ) : isOnline && page.items.length > 0 && page.hasMore ? (
               action('Cargar más', () => void loadMore(), refreshing)
             ) : null
           }
         />
       </View>
       <HistoryDetailDialog
-        record={selected?.scope === scope ? selected.record : null}
+        record={
+          selected?.scope === scope
+            ? (page.items.find((item) => item.id === selected.record.id) ??
+              (selected.record.pendiente_envio ? null : selected.record))
+            : null
+        }
         localName={activeLocal?.nombre ?? ''}
         onClose={() => setSelected(null)}
       />

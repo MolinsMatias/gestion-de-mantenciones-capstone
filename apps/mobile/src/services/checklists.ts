@@ -78,7 +78,9 @@ function parseChecklistSection(raw: unknown, pautaId: string): ChecklistSection 
  */
 export async function fetchActiveChecklistByCategory(
   categoriaId: string,
+  isOnline = true,
 ): Promise<Checklist | null> {
+  if (!isOnline) return getCachedChecklist(categoriaId);
   const cacheKey = `${CHECKLIST_CACHE_PREFIX}:${categoriaId.toLowerCase()}`;
 
   try {
@@ -150,7 +152,11 @@ export async function fetchActiveChecklistByCategory(
       secciones,
     };
 
-    void AsyncStorage.setItem(cacheKey, JSON.stringify(checklist)).catch(() => {});
+    try {
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(checklist));
+    } catch (error) {
+      console.warn('Could not store checklist for offline use:', error);
+    }
 
     return checklist;
   } catch (err) {

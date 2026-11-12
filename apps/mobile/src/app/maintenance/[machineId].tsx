@@ -59,7 +59,7 @@ export default function MaintenanceScreen() {
   const { machineId } = useLocalSearchParams<{ machineId: string }>();
   const router = useRouter();
   const { width: viewportWidth } = useWindowDimensions();
-  const { isOnline } = useNetworkStatus();
+  const { isOnline, checkConnectivityNow } = useNetworkStatus();
   const { session } = useAuth();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -170,7 +170,8 @@ export default function MaintenanceScreen() {
       setErrorMessage(null);
 
       try {
-        const foundMachine = await fetchMachineById(machineId);
+        const online = await checkConnectivityNow();
+        const foundMachine = await fetchMachineById(machineId, online);
         if (!mounted) return;
 
         if (!foundMachine) {
@@ -182,12 +183,17 @@ export default function MaintenanceScreen() {
         setMachine(foundMachine);
 
         // Fetch checklist for category
-        const foundChecklist = await fetchActiveChecklistByCategory(foundMachine.categoria_id);
+        const foundChecklist = await fetchActiveChecklistByCategory(
+          foundMachine.categoria_id,
+          online,
+        );
         if (!mounted) return;
 
         if (!foundChecklist || foundChecklist.secciones.length === 0) {
           setErrorMessage(
-            `No hay una pauta de mantenimiento activa cargada para la categoría "${foundMachine.categoria.nombre}".`,
+            online
+              ? `No hay una pauta de mantenimiento activa cargada para la categoría "${foundMachine.categoria.nombre}".`
+              : 'La pauta de este equipo todavía no está guardada. Conéctate a internet para descargarla.',
           );
           setIsLoading(false);
           return;
@@ -227,7 +233,7 @@ export default function MaintenanceScreen() {
     return () => {
       mounted = false;
     };
-  }, [machineId]);
+  }, [checkConnectivityNow, machineId]);
 
   // Auto-save draft on change
   const scheduleAutoSave = useCallback((draft: MaintenanceDraft) => {

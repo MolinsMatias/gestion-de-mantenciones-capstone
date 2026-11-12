@@ -84,6 +84,11 @@ export default function RootLayout() {
   useEffect(() => {
     void SplashScreen.hideAsync();
     syncWebStatusBarMeta();
+    if (Platform.OS === 'web' && !__DEV__ && 'serviceWorker' in navigator) {
+      void navigator.serviceWorker.register('/service-worker.js').catch((error) => {
+        console.warn('Could not prepare the web app for offline startup:', error);
+      });
+    }
   }, []);
 
   return (

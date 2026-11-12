@@ -1,10 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
+  "buildCommand": "pnpm run build:web",
   "trailingSlash": false,
   "rewrites": [
     {
-      "source": "/((?!assets/|_expo/|favicon.ico|manifest.json).*)",
+      "source": "/((?!assets/|_expo/|favicon.ico|manifest.json|service-worker.js).*)",
       "destination": "/index"
     }
   ]

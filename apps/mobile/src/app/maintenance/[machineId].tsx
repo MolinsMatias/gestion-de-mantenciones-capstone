@@ -415,7 +415,7 @@ export default function MaintenanceScreen() {
             ? 'Guardada en el dispositivo'
             : 'Mantención enviada con éxito',
           message: result.guardado_offline
-            ? `El envío al servidor está pendiente. ${result.mensaje}`
+            ? `El envío a la nube está pendiente. ${result.mensaje}`
             : result.mensaje,
         });
       } else {

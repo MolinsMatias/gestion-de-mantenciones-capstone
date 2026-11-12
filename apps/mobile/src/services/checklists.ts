@@ -11,7 +11,18 @@ import type {
 
 const CHECKLIST_CACHE_PREFIX = '@bowling_services/checklist_cache';
 const DRAFT_CACHE_PREFIX = '@bowling_services/maintenance_draft';
-const OFFLINE_QUEUE_KEY = '@bowling_services/offline_maintenance_queue';
+const PENDING_MAINTENANCE_PREFIX = '@bowling_services/pending_maintenance';
+const pendingSends = new Map<string, Promise<void>>();
+
+interface PendingMaintenance {
+  draft: MaintenanceDraft;
+  finalizedAt: string;
+}
+
+async function getPendingMaintenanceKeys(technicianId: string) {
+  const prefix = `${PENDING_MAINTENANCE_PREFIX}:${technicianId}:`;
+  return (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith(prefix));
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -208,131 +219,132 @@ export async function clearMaintenanceDraft(maquinaId: string): Promise<void> {
   }
 }
 
-async function queueMaintenanceOffline(draft: MaintenanceDraft): Promise<void> {
-  try {
-    const raw = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
-    const queue: MaintenanceDraft[] = [];
-    if (raw) {
-      const parsed: unknown = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        for (const item of parsed) {
-          if (isRecord(item) && typeof item.mantencion_id === 'string') {
-            queue.push(item as unknown as MaintenanceDraft);
-          }
-        }
-      }
-    }
+async function sendMaintenance(
+  { draft, finalizedAt }: PendingMaintenance,
+  technicianId: string,
+): Promise<void> {
+  const supabase = getSupabase();
 
-    const byId = new Map<string, MaintenanceDraft>();
-    for (const item of queue) {
-      byId.set(item.mantencion_id.toLowerCase(), item);
-    }
-    byId.set(draft.mantencion_id.toLowerCase(), draft);
+  const { data: existing, error: lookupError } = await supabase
+    .from('mantencion')
+    .select('estado')
+    .eq('id', draft.mantencion_id)
+    .maybeSingle();
 
-    await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(Array.from(byId.values())));
-  } catch (err) {
-    console.warn('Could not queue maintenance offline:', err);
+  if (lookupError) throw lookupError;
+  if (existing?.estado === 'enviada') return;
+
+  const sentAt = new Date().toISOString();
+  const { error: headerError } = await supabase.from('mantencion').upsert({
+    id: draft.mantencion_id,
+    maquina_id: draft.maquina_id,
+    pauta_id: draft.pauta_id,
+    tecnico_id: technicianId,
+    local_id: draft.local_id,
+    tipo: draft.tipo,
+    estado: 'borrador',
+    iniciada_at: draft.iniciada_at,
+    finalizada_at: finalizedAt,
+    enviada_at: sentAt,
+    trabajos_realizados: draft.trabajos_realizados.trim(),
+    estado_equipo_final: draft.estado_equipo_final,
+    requiere_repuestos: draft.requiere_repuestos,
+    detalle_repuestos: draft.requiere_repuestos ? draft.detalle_repuestos.trim() : null,
+    pendientes: draft.pendientes.trim() || null,
+    observaciones: draft.observaciones.trim() || null,
+  });
+
+  if (headerError) {
+    throw new Error(`Error al guardar mantención: ${headerError.message}`);
+  }
+
+  const answersList = Object.values(draft.respuestas).filter((ans) => ans.resultado !== null);
+
+  if (answersList.length > 0) {
+    const responseRows = answersList.map((ans) => ({
+      mantencion_id: draft.mantencion_id,
+      item_id: ans.item_id,
+      resultado: ans.resultado,
+      observaciones: ans.observaciones.trim() || null,
+    }));
+
+    const { error: itemsError } = await supabase
+      .from('respuesta_item')
+      .upsert(responseRows, { onConflict: 'mantencion_id,item_id' });
+
+    if (itemsError) {
+      throw new Error(`Error al guardar respuestas: ${itemsError.message}`);
+    }
+  }
+
+  const { error: rpcError } = await supabase.rpc('submit_maintenance', {
+    p_id: draft.mantencion_id,
+  });
+
+  if (rpcError) {
+    throw new Error(`Error al confirmar envío: ${rpcError.message}`);
   }
 }
 
-/**
- * Submits the completed maintenance checklist.
- * Saves the draft in `mantencion` and `respuesta_item`, and executes `submit_maintenance(p_id)`.
- * If offline or the network fails, it queues the record locally in AsyncStorage.
- */
+function syncPendingMaintenance(key: string, technicianId: string): Promise<void> {
+  const inFlight = pendingSends.get(key);
+  if (inFlight) return inFlight;
+
+  const send = (async () => {
+    const raw = await AsyncStorage.getItem(key);
+    if (!raw) return;
+    const { data } = await getSupabase().auth.getSession();
+    if (data.session?.user.id !== technicianId) {
+      throw new Error('La sesión cambió antes de sincronizar la mantención.');
+    }
+    const pending = JSON.parse(raw) as PendingMaintenance;
+    await sendMaintenance(pending, technicianId);
+    await AsyncStorage.removeItem(key);
+  })().finally(() => pendingSends.delete(key));
+
+  pendingSends.set(key, send);
+  return send;
+}
+
+export async function syncPendingMaintenances(technicianId: string): Promise<void> {
+  const keys = await getPendingMaintenanceKeys(technicianId);
+  for (const key of keys) {
+    try {
+      await syncPendingMaintenance(key, technicianId);
+    } catch {
+      // Keep the pending record for the next attempt.
+    }
+  }
+}
+
 export async function submitMaintenanceRecord(
   draft: MaintenanceDraft,
-  tecnicoId: string,
+  technicianId: string,
   isOnline: boolean,
 ): Promise<SubmitMaintenanceResult> {
-  const nowIso = new Date().toISOString();
+  const key = `${PENDING_MAINTENANCE_PREFIX}:${technicianId}:${draft.mantencion_id.toLowerCase()}`;
+  const pending: PendingMaintenance = { draft, finalizedAt: new Date().toISOString() };
+  await AsyncStorage.setItem(key, JSON.stringify(pending));
+  await clearMaintenanceDraft(draft.maquina_id);
 
-  if (!isOnline) {
-    await queueMaintenanceOffline(draft);
-    await clearMaintenanceDraft(draft.maquina_id);
-    return {
-      exito: true,
-      mantencion_id: draft.mantencion_id,
-      guardado_offline: true,
-      mensaje:
-        'Intervención guardada en el dispositivo. Se enviará automáticamente cuando recuperes la conexión.',
-    };
-  }
-
-  try {
-    const supabase = getSupabase();
-
-    // 1. Guardar la fila principal de la intervención en estado 'borrador'
-    const { error: headerError } = await supabase.from('mantencion').upsert({
-      id: draft.mantencion_id,
-      maquina_id: draft.maquina_id,
-      pauta_id: draft.pauta_id,
-      tecnico_id: tecnicoId,
-      local_id: draft.local_id,
-      tipo: draft.tipo,
-      estado: 'borrador',
-      iniciada_at: draft.iniciada_at,
-      finalizada_at: nowIso,
-      enviada_at: nowIso,
-      trabajos_realizados: draft.trabajos_realizados.trim(),
-      estado_equipo_final: draft.estado_equipo_final,
-      requiere_repuestos: draft.requiere_repuestos,
-      detalle_repuestos: draft.requiere_repuestos ? draft.detalle_repuestos.trim() : null,
-      pendientes: draft.pendientes.trim() || null,
-      observaciones: draft.observaciones.trim() || null,
-    });
-
-    if (headerError) {
-      throw new Error(`Error al guardar mantención: ${headerError.message}`);
-    }
-
-    // 2. Guardar las respuestas de los ítems de la pauta
-    const answersList = Object.values(draft.respuestas).filter((ans) => ans.resultado !== null);
-
-    if (answersList.length > 0) {
-      const responseRows = answersList.map((ans) => ({
+  if (isOnline) {
+    try {
+      await syncPendingMaintenance(key, technicianId);
+      return {
+        exito: true,
         mantencion_id: draft.mantencion_id,
-        item_id: ans.item_id,
-        resultado: ans.resultado,
-        observaciones: ans.observaciones.trim() || null,
-      }));
-
-      const { error: itemsError } = await supabase
-        .from('respuesta_item')
-        .upsert(responseRows, { onConflict: 'mantencion_id,item_id' });
-
-      if (itemsError) {
-        throw new Error(`Error al guardar respuestas: ${itemsError.message}`);
-      }
+        guardado_offline: false,
+        mensaje: 'Mantención registrada y enviada exitosamente.',
+      };
+    } catch {
+      // The local record remains available for automatic retry.
     }
-
-    // 3. Confirmar la intervención llamando a la RPC transaccional submit_maintenance
-    const { error: rpcError } = await supabase.rpc('submit_maintenance', {
-      p_id: draft.mantencion_id,
-    });
-
-    if (rpcError) {
-      throw new Error(`Error al confirmar envío: ${rpcError.message}`);
-    }
-
-    await clearMaintenanceDraft(draft.maquina_id);
-
-    return {
-      exito: true,
-      mantencion_id: draft.mantencion_id,
-      guardado_offline: false,
-      mensaje: 'Mantención registrada y enviada exitosamente.',
-    };
-  } catch (err) {
-    const errorMessage =
-      err instanceof Error ? err.message : 'No se pudo confirmar el envío al servidor.';
-    await queueMaintenanceOffline(draft);
-    await clearMaintenanceDraft(draft.maquina_id);
-    return {
-      exito: true,
-      mantencion_id: draft.mantencion_id,
-      guardado_offline: true,
-      mensaje: `No se pudo confirmar el envío. La intervención quedó guardada localmente para reintentar. Detalle: ${errorMessage}`,
-    };
   }
+
+  return {
+    exito: true,
+    mantencion_id: draft.mantencion_id,
+    guardado_offline: true,
+    mensaje: 'La app reintentará el envío cuando esté abierta y tenga conexión.',
+  };
 }

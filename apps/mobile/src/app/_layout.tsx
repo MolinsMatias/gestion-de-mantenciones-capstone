@@ -8,6 +8,7 @@ import { LogBox, Platform, StatusBar, useColorScheme } from 'react-native';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import { useSupabaseSessionRefresh } from '@/hooks/use-supabase-session-refresh';
+import { PendingMaintenanceSync } from '@/components/maintenance/pending-maintenance-sync';
 import { AuthProvider } from '@/providers/auth-provider';
 import { LocalProvider } from '@/providers/local-provider';
 
@@ -102,6 +103,7 @@ export default function RootLayout() {
       />
       <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
         <AuthProvider>
+          <PendingMaintenanceSync />
           <LocalProvider>
             <Stack
               screenOptions={{

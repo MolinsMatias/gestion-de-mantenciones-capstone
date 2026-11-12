@@ -14,8 +14,8 @@ interface MaintenanceHeaderProps {
   title: string;
   step: number;
   totalSteps?: number;
-  startedAt: string;
-  isTimerStopped?: boolean;
+  elapsedMs: number;
+  runningSince: number | null;
   isOnline: boolean;
   onBack: () => void;
   disabled?: boolean;
@@ -25,28 +25,26 @@ export function MaintenanceHeader({
   title,
   step,
   totalSteps,
-  startedAt,
-  isTimerStopped = false,
+  elapsedMs,
+  runningSince,
   isOnline,
   onBack,
   disabled = false,
 }: MaintenanceHeaderProps) {
-  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [nowMs, setNowMs] = useState(() => performance.now());
 
   useEffect(() => {
-    if (isTimerStopped) return;
+    if (runningSince === null) return;
 
     const interval = setInterval(() => {
-      setNowMs(Date.now());
+      setNowMs(performance.now());
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isTimerStopped]);
+  }, [runningSince]);
 
-  const startMs = new Date(startedAt).getTime();
-  const elapsedSeconds = Number.isNaN(startMs)
-    ? 0
-    : Math.max(0, Math.floor((nowMs - startMs) / 1000));
+  const segmentMs = runningSince === null ? 0 : Math.max(0, nowMs - runningSince);
+  const elapsedSeconds = Math.floor((elapsedMs + segmentMs) / 1000);
   const elapsedTime = formatElapsedTime(elapsedSeconds);
   const progress = totalSteps ? Math.round((step / totalSteps) * 100) : 0;
   return (

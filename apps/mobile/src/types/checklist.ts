@@ -47,6 +47,7 @@ export interface MaintenanceDraft {
   local_id: string;
   tipo: MaintenanceType;
   iniciada_at: string;
+  tiempo_activo_ms?: number;
   respuestas: Record<string, ItemAnswer>;
   trabajos_realizados: string;
   estado_equipo_final: FinalMachineStatus;

@@ -308,6 +308,40 @@ export async function fetchMachinesPage(
   const cleanSearch = sanitizePostgrestSearchTerm(params?.searchQuery ?? '');
   const statusFilter: MachineStatusFilter = params?.statusFilter ?? 'all';
 
+  async function readCachedPage(): Promise<PaginatedMachinesResult | null> {
+    const catalog = await getCachedMachineCatalog();
+    const cached = await getCachedMachines(params?.localId);
+    const byId = new Map(cached?.map((machine) => [machine.id, machine]));
+    for (const machine of catalog ?? []) {
+      if (!params?.localId || machine.local_id === params.localId) byId.set(machine.id, machine);
+    }
+    if (byId.size > 0) {
+      const filtered = filterMachinesInMemory(
+        Array.from(byId.values()).sort((a, b) =>
+          a.codigo_interno.localeCompare(b.codigo_interno, 'es'),
+        ),
+        params?.categoryId,
+        cleanSearch,
+        statusFilter,
+      );
+      const paged = filtered.slice(offset, offset + limit);
+      return {
+        items: paged,
+        totalCount: filtered.length,
+        hasMore: offset + paged.length < filtered.length,
+        isFromCache: true,
+      };
+    }
+
+    return null;
+  }
+
+  if (params?.preferOffline) {
+    return (
+      (await readCachedPage()) ?? { items: [], totalCount: 0, hasMore: false, isFromCache: true }
+    );
+  }
+
   try {
     const supabase = getSupabase();
 
@@ -446,22 +480,8 @@ export async function fetchMachinesPage(
       isFromCache: false,
     };
   } catch (err) {
-    const cached = await getCachedMachines(params?.localId);
-    if (cached && cached.length > 0) {
-      const filtered = filterMachinesInMemory(
-        cached,
-        params?.categoryId,
-        cleanSearch,
-        statusFilter,
-      );
-      const paged = filtered.slice(offset, offset + limit);
-      return {
-        items: paged,
-        totalCount: filtered.length,
-        hasMore: offset + paged.length < filtered.length,
-        isFromCache: true,
-      };
-    }
+    const cachedPage = await readCachedPage();
+    if (cachedPage) return cachedPage;
 
     throw err instanceof Error ? err : new Error('No se pudo cargar el listado de máquinas.');
   }

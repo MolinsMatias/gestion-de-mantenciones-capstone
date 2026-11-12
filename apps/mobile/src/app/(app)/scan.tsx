@@ -43,7 +43,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/components/shared/app-header';
-import { useNetworkStatus } from '@/hooks/use-network-status';
+import { useNetworkStatus } from '@/providers/network-provider';
 import { resolveMachineByQrCode, syncAllActiveMachinesForOfflineCache } from '@/services/machines';
 import type { QrMachineResolutionResult } from '@/types/machine';
 

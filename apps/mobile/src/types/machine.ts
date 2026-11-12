@@ -31,6 +31,7 @@ export interface Machine {
 }
 
 export interface FetchMachinesParams {
+  preferOffline?: boolean;
   localId?: string;
   categoryId?: string;
   searchQuery?: string;

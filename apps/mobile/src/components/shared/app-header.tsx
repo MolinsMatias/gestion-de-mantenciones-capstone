@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/providers/auth-provider';
+import { useNetworkStatus } from '@/providers/network-provider';
 import { getGreetingName } from '@/services/user';
 
 export interface AppHeaderProps {
@@ -15,17 +16,9 @@ export interface AppHeaderProps {
    */
   subtitle?: string;
   /**
-   * Current online/local connectivity status. Default: true
-   */
-  isOnline?: boolean;
-  /**
-   * Whether to show the connectivity pill button. Default: true
+   * Whether to show the connectivity indicator. Default: true
    */
   showConnectivity?: boolean;
-  /**
-   * Callback fired when connectivity pill is pressed.
-   */
-  onPressConnectivity?: () => void;
   /**
    * Custom element rendered on the right side instead of the connectivity pill.
    */
@@ -48,9 +41,7 @@ export interface AppHeaderProps {
 export function AppHeader({
   title,
   subtitle,
-  isOnline = true,
   showConnectivity = true,
-  onPressConnectivity,
   rightElement,
   leadingElement,
   children,
@@ -58,6 +49,7 @@ export function AppHeader({
 }: AppHeaderProps) {
   const insets = useSafeAreaInsets();
   const { session, profile } = useAuth();
+  const { isOnline } = useNetworkStatus();
 
   const greetingName = getGreetingName(profile, session?.user?.user_metadata, session?.user?.email);
 
@@ -84,22 +76,7 @@ export function AppHeader({
         {rightElement ? (
           rightElement
         ) : showConnectivity ? (
-          <Pressable
-            onPress={onPressConnectivity}
-            accessibilityRole="button"
-            accessibilityLabel={
-              isOnline
-                ? 'Conexión a internet activa: sincronizando con la base de datos'
-                : 'Sin conexión: guardando datos en almacenamiento local'
-            }
-            accessibilityHint={
-              onPressConnectivity
-                ? 'Toca para ver detalles de sincronización o alternar el modo'
-                : undefined
-            }
-            className="flex-row items-center rounded-lg px-2 py-1.5 active:opacity-70"
-            style={onPressConnectivity ? { cursor: 'pointer' } : undefined}
-          >
+          <View className="flex-row items-center rounded-lg px-2 py-1.5">
             <View
               className={`mr-2 h-2 w-2 rounded-full ${
                 isOnline ? 'bg-emerald-400' : 'bg-amber-400'
@@ -112,7 +89,7 @@ export function AppHeader({
             >
               {isOnline ? 'En línea' : 'Modo local'}
             </Text>
-          </Pressable>
+          </View>
         ) : null}
       </View>
 

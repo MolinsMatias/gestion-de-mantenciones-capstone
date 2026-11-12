@@ -25,7 +25,7 @@ import { MaintenanceFooter } from '@/components/maintenance/maintenance-footer';
 import { MaintenanceStepHeading } from '@/components/maintenance/maintenance-step-heading';
 import { KeyboardScrollView } from '@/components/shared/keyboard-scroll-view';
 import { Skeleton } from '@/components/shared/skeleton';
-import { useNetworkStatus } from '@/hooks/use-network-status';
+import { useNetworkStatus } from '@/providers/network-provider';
 import { useAuth } from '@/providers/auth-provider';
 import {
   fetchActiveChecklistByCategory,

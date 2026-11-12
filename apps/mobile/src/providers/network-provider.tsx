@@ -1,11 +1,17 @@
 import * as Network from 'expo-network';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type PropsWithChildren,
+} from 'react';
 import { AppState, Platform, type AppStateStatus } from 'react-native';
 
 export interface UseNetworkStatusResult {
   isOnline: boolean;
-  isSimulatingOffline: boolean;
-  toggleSimulatedOffline: () => void;
   checkConnectivityNow: () => Promise<boolean>;
 }
 
@@ -40,15 +46,14 @@ async function readNetworkOnlineState(): Promise<boolean> {
  * Detects real internet connectivity across both Android APK and Web PWA
  * using native OS/browser connectivity events (`expo-network`) without HTTP polling.
  */
-export function useNetworkStatus(): UseNetworkStatusResult {
-  const [realIsOnline, setRealIsOnline] = useState<boolean>(getBrowserOnlineFallback);
-  const [isSimulatingOffline, setIsSimulatingOffline] = useState<boolean>(false);
+export function NetworkProvider({ children }: PropsWithChildren) {
+  const [isOnline, setIsOnline] = useState<boolean>(getBrowserOnlineFallback);
   const mountedRef = useRef<boolean>(true);
 
   const checkConnectivityNow = useCallback(async (): Promise<boolean> => {
     const online = await readNetworkOnlineState();
     if (mountedRef.current) {
-      setRealIsOnline(online);
+      setIsOnline(online);
     }
     return online;
   }, []);
@@ -58,7 +63,7 @@ export function useNetworkStatus(): UseNetworkStatusResult {
 
     void readNetworkOnlineState().then((online) => {
       if (mountedRef.current) {
-        setRealIsOnline(online);
+        setIsOnline(online);
       }
     });
 
@@ -66,7 +71,7 @@ export function useNetworkStatus(): UseNetworkStatusResult {
     try {
       networkSubscription = Network.addNetworkStateListener((state) => {
         if (mountedRef.current) {
-          setRealIsOnline(isNetworkStateOnline(state));
+          setIsOnline(isNetworkStateOnline(state));
         }
       });
     } catch {
@@ -81,12 +86,12 @@ export function useNetworkStatus(): UseNetworkStatusResult {
 
     const handleBrowserOnline = () => {
       if (mountedRef.current) {
-        setRealIsOnline(true);
+        setIsOnline(true);
       }
     };
     const handleBrowserOffline = () => {
       if (mountedRef.current) {
-        setRealIsOnline(false);
+        setIsOnline(false);
       }
     };
 
@@ -106,22 +111,17 @@ export function useNetworkStatus(): UseNetworkStatusResult {
     };
   }, [checkConnectivityNow]);
 
-  const toggleSimulatedOffline = useCallback(() => {
-    setIsSimulatingOffline((prev) => {
-      const next = !prev;
-      if (!next) {
-        void checkConnectivityNow();
-      }
-      return next;
-    });
-  }, [checkConnectivityNow]);
+  return (
+    <NetworkContext.Provider value={{ isOnline, checkConnectivityNow }}>
+      {children}
+    </NetworkContext.Provider>
+  );
+}
 
-  const effectiveIsOnline = isSimulatingOffline ? false : realIsOnline;
+const NetworkContext = createContext<UseNetworkStatusResult | null>(null);
 
-  return {
-    isOnline: effectiveIsOnline,
-    isSimulatingOffline,
-    toggleSimulatedOffline,
-    checkConnectivityNow,
-  };
+export function useNetworkStatus(): UseNetworkStatusResult {
+  const status = useContext(NetworkContext);
+  if (!status) throw new Error('useNetworkStatus requiere NetworkProvider.');
+  return status;
 }

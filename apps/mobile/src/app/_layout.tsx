@@ -11,6 +11,7 @@ import { useSupabaseSessionRefresh } from '@/hooks/use-supabase-session-refresh'
 import { PendingMaintenanceSync } from '@/components/maintenance/pending-maintenance-sync';
 import { AuthProvider } from '@/providers/auth-provider';
 import { LocalProvider } from '@/providers/local-provider';
+import { NetworkProvider } from '@/providers/network-provider';
 
 LogBox.ignoreLogs(['[Reanimated] Reduced motion setting is enabled on this device']);
 
@@ -102,28 +103,30 @@ export default function RootLayout() {
         translucent={false}
       />
       <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
-        <AuthProvider>
-          <PendingMaintenanceSync />
-          <LocalProvider>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: HEADER_STATUS_BAR_COLOR },
-              }}
-            >
-              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-              <Stack.Screen name="(app)" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="maintenance/[machineId]"
-                options={{
+        <NetworkProvider>
+          <AuthProvider>
+            <PendingMaintenanceSync />
+            <LocalProvider>
+              <Stack
+                screenOptions={{
                   headerShown: false,
-                  animation: 'slide_from_right',
-                  contentStyle: { backgroundColor: '#f8fafc' },
+                  contentStyle: { backgroundColor: HEADER_STATUS_BAR_COLOR },
                 }}
-              />
-            </Stack>
-          </LocalProvider>
-        </AuthProvider>
+              >
+                <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                <Stack.Screen name="(app)" options={{ headerShown: false }} />
+                <Stack.Screen
+                  name="maintenance/[machineId]"
+                  options={{
+                    headerShown: false,
+                    animation: 'slide_from_right',
+                    contentStyle: { backgroundColor: '#f8fafc' },
+                  }}
+                />
+              </Stack>
+            </LocalProvider>
+          </AuthProvider>
+        </NetworkProvider>
       </KeyboardProvider>
     </ThemeProvider>
   );

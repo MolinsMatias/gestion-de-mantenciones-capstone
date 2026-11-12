@@ -40,6 +40,7 @@ interface WebDomElement {
 }
 
 export interface UseWebPullToRefreshOptions {
+  enabled?: boolean;
   isRefreshing: boolean;
   onRefresh: () => Promise<void> | void;
 }
@@ -58,6 +59,7 @@ export interface UseWebPullToRefreshResult {
  * On Android/iOS native, this hook is a no-op so native `RefreshControl` works normally.
  */
 export function useWebPullToRefresh({
+  enabled = true,
   isRefreshing,
   onRefresh,
 }: UseWebPullToRefreshOptions): UseWebPullToRefreshResult {
@@ -84,7 +86,7 @@ export function useWebPullToRefresh({
   }, []);
 
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
+    if (Platform.OS !== 'web' || !enabled) return;
 
     const rawNode: unknown = containerRef.current;
     if (!rawNode || typeof rawNode !== 'object') return;
@@ -204,6 +206,7 @@ export function useWebPullToRefresh({
     domNode.addEventListener('mouseleave', onMouseUp);
 
     return () => {
+      resetGesture();
       domNode.removeEventListener?.('touchstart', onTouchStart);
       domNode.removeEventListener?.('touchmove', onTouchMove);
       domNode.removeEventListener?.('touchend', onTouchEnd);
@@ -213,12 +216,12 @@ export function useWebPullToRefresh({
       domNode.removeEventListener?.('mouseup', onMouseUp);
       domNode.removeEventListener?.('mouseleave', onMouseUp);
     };
-  }, []);
+  }, [enabled]);
 
   return {
     containerRef,
-    pullDistance,
-    isThresholdReached: pullDistance >= PULL_TRIGGER_THRESHOLD,
+    pullDistance: enabled ? pullDistance : 0,
+    isThresholdReached: enabled && pullDistance >= PULL_TRIGGER_THRESHOLD,
     handleScroll,
   };
 }

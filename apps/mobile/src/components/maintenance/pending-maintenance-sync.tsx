@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
-import { useNetworkStatus } from '@/hooks/use-network-status';
+import { useNetworkStatus } from '@/providers/network-provider';
 import { useAuth } from '@/providers/auth-provider';
 import { syncPendingMaintenances } from '@/services/checklists';
 

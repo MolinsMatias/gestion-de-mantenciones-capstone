@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { readPendingMaintenances } from '@/services/checklists';
+import { fetchMachineById } from '@/services/machines';
 import { getSupabase } from '@/services/supabase';
 import type {
   MaintenanceItem,
@@ -10,6 +12,58 @@ import type {
 export const HISTORY_PAGE_SIZE = 20;
 const cacheKey = (query: HistoryQuery) =>
   `@bowling_services/history/v1/${encodeURIComponent(JSON.stringify(query))}`;
+const normalizeSearch = (value: string) => value.replace(/[^\p{L}\p{N}\s-]/gu, ' ').trim();
+
+const formatHistoryDate = (date: string) =>
+  new Date(date).toLocaleDateString('es-CL', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+
+export async function readPendingHistory(query: HistoryQuery): Promise<HistoryRecord[]> {
+  const pending = await readPendingMaintenances(query.userId);
+  const search = normalizeSearch(query.search).toLowerCase();
+  const matches = pending.filter(
+    ({ draft, finalizedAt }) =>
+      draft.local_id === query.localId &&
+      (query.type === 'all' || draft.tipo === query.type) &&
+      (!query.completedFrom || Date.parse(finalizedAt) >= Date.parse(query.completedFrom)) &&
+      (!query.completedBefore || Date.parse(finalizedAt) < Date.parse(query.completedBefore)),
+  );
+  const items = await Promise.all(
+    matches.map(async ({ draft, finalizedAt, machine }): Promise<HistoryRecord | null> => {
+      const cached = machine ? null : await fetchMachineById(draft.maquina_id, false);
+      const categoryId = machine?.categoryId ?? cached?.categoria_id;
+      const title = machine?.name ?? cached?.nombre ?? 'Equipo';
+      const code = machine?.code ?? cached?.codigo_interno ?? '';
+      if (query.categoryId && query.categoryId !== categoryId) return null;
+      if (search && ![title, code].some((value) => value.toLowerCase().includes(search)))
+        return null;
+      return {
+        id: draft.mantencion_id,
+        titulo: title,
+        codigo_interno: code,
+        categoria: machine?.categoryName ?? cached?.categoria.nombre ?? 'Sin categoría',
+        ubicacion: '',
+        etiqueta_tiempo: formatHistoryDate(finalizedAt),
+        tipo_icono: 'wrench',
+        tipo: draft.tipo,
+        iniciada_at: draft.iniciada_at,
+        finalizada_at: finalizedAt,
+        enviada_at: null,
+        pendiente_envio: true,
+        trabajos_realizados: draft.trabajos_realizados,
+        estado_equipo_final: draft.estado_equipo_final,
+        requiere_repuestos: draft.requiere_repuestos,
+        detalle_repuestos: draft.requiere_repuestos ? draft.detalle_repuestos : null,
+        pendientes: draft.pendientes,
+        observaciones: draft.observaciones,
+      };
+    }),
+  );
+  return items.filter((item): item is HistoryRecord => item !== null);
+}
 
 export async function readHistoryCache(query: HistoryQuery): Promise<HistoryPage | null> {
   try {
@@ -41,7 +95,7 @@ export async function fetchHistoryPage(query: HistoryQuery, offset = 0): Promise
   if (query.completedBefore) request = request.lt('finalizada_at', query.completedBefore);
   if (query.categoryId) request = request.eq('maquina.categoria_id', query.categoryId);
   if (query.type !== 'all') request = request.eq('tipo', query.type);
-  const search = query.search.replace(/[^\p{L}\p{N}\s-]/gu, ' ').trim();
+  const search = normalizeSearch(query.search);
   if (search)
     request = request.or(`nombre.ilike.%${search}%,codigo_interno.ilike.%${search}%`, {
       referencedTable: 'maquina',
@@ -66,11 +120,7 @@ export async function fetchHistoryPage(query: HistoryQuery, offset = 0): Promise
       categoria: row.maquina.categoria?.nombre ?? 'Sin categoría',
       codigo_interno: row.maquina.codigo_interno,
       ubicacion: '',
-      etiqueta_tiempo: new Date(row.finalizada_at ?? row.enviada_at).toLocaleDateString('es-CL', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      }),
+      etiqueta_tiempo: formatHistoryDate(row.finalizada_at ?? row.enviada_at ?? row.iniciada_at),
       tipo_icono: 'completed',
     };
   });

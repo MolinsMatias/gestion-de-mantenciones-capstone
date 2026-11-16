@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { KeyboardAvoidingContainer } from '@/components/shared/keyboard-avoiding-container';
+import { useKeyboardOffset } from '@/hooks/use-keyboard-offset';
 import type { Local } from '@/types/local';
 
 export interface LocalBottomSheetProps {
@@ -38,6 +38,7 @@ export function LocalBottomSheet({
   onClose,
 }: LocalBottomSheetProps) {
   const insets = useSafeAreaInsets();
+  const keyboardOffset = useKeyboardOffset();
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredLocals = useMemo(() => {
@@ -158,7 +159,8 @@ export function LocalBottomSheet({
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'}
         contentContainerStyle={{
-          paddingBottom: Math.max(insets.bottom, 16) + 24,
+          paddingBottom:
+            Math.max(insets.bottom, 16) + 24 + (Platform.OS === 'web' ? 0 : keyboardOffset),
         }}
       >
         {isLoading && locals.length === 0 ? (
@@ -268,11 +270,12 @@ export function LocalBottomSheet({
       statusBarTranslucent
     >
       {Platform.OS === 'web' ? (
-        <KeyboardAvoidingContainer
+        <View
           className="flex-1 bg-black/60"
           style={{
             justifyContent: 'flex-end',
             paddingTop: Math.max(insets.top, 12),
+            paddingBottom: keyboardOffset,
           }}
         >
           <Pressable onPress={handleClose} accessible={false} style={StyleSheet.absoluteFill} />
@@ -282,10 +285,10 @@ export function LocalBottomSheet({
           >
             {renderSheetContent()}
           </View>
-        </KeyboardAvoidingContainer>
+        </View>
       ) : (
         <Pressable onPress={handleClose} className="flex-1 bg-black/60">
-          <KeyboardAvoidingContainer style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <View style={{ flex: 1, justifyContent: 'flex-end' }}>
             <Pressable
               onPress={(e) => {
                 (e as unknown as { stopPropagation?: () => void })?.stopPropagation?.();
@@ -295,7 +298,7 @@ export function LocalBottomSheet({
             >
               {renderSheetContent()}
             </Pressable>
-          </KeyboardAvoidingContainer>
+          </View>
         </Pressable>
       )}
     </Modal>

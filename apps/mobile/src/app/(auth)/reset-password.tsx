@@ -147,7 +147,7 @@ export default function ResetPasswordScreen() {
     <View className="flex-1 bg-brand-dark">
       <StatusBar style="light" />
       <KeyboardScrollView
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: '#ffffff' }}
         contentContainerStyle={{ flexGrow: 1 }}
         contentInsetAdjustmentBehavior="never"
         automaticallyAdjustContentInsets={false}
@@ -157,28 +157,30 @@ export default function ResetPasswordScreen() {
         showsVerticalScrollIndicator={false}
         bottomOffset={48}
       >
-        <AuthHeader
-          title="Restablecer contraseña"
-          subtitle={
-            isSuccess
-              ? 'Contraseña actualizada'
-              : sessionError
-                ? 'Enlace no válido'
-                : 'Ingresa tu nueva contraseña para continuar'
-          }
-        />
-
-        <View className="flex-1">
-          <ResetPasswordForm
-            onSubmit={handleSubmitPassword}
-            isLoading={isSubmitting}
-            isCheckingSession={isCheckingSession}
-            errorMessage={errorMessage}
-            sessionError={sessionError}
-            isSuccess={isSuccess}
-            onGoToLogin={handleGoToLogin}
-            onRequestNewLink={handleRequestNewLink}
+        <View className="flex-1 bg-brand-dark">
+          <AuthHeader
+            title="Restablecer contraseña"
+            subtitle={
+              isSuccess
+                ? 'Contraseña actualizada'
+                : sessionError
+                  ? 'Enlace no válido'
+                  : 'Ingresa tu nueva contraseña para continuar'
+            }
           />
+
+          <View className="flex-1">
+            <ResetPasswordForm
+              onSubmit={handleSubmitPassword}
+              isLoading={isSubmitting}
+              isCheckingSession={isCheckingSession}
+              errorMessage={errorMessage}
+              sessionError={sessionError}
+              isSuccess={isSuccess}
+              onGoToLogin={handleGoToLogin}
+              onRequestNewLink={handleRequestNewLink}
+            />
+          </View>
         </View>
       </KeyboardScrollView>
     </View>

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { fetchActiveChecklistByCategory } from '@/services/checklists';
 import { getSupabase } from '@/services/supabase';
 import type {
   FetchMachinesParams,
@@ -307,6 +308,40 @@ export async function fetchMachinesPage(
   const cleanSearch = sanitizePostgrestSearchTerm(params?.searchQuery ?? '');
   const statusFilter: MachineStatusFilter = params?.statusFilter ?? 'all';
 
+  async function readCachedPage(): Promise<PaginatedMachinesResult | null> {
+    const catalog = await getCachedMachineCatalog();
+    const cached = await getCachedMachines(params?.localId);
+    const byId = new Map(cached?.map((machine) => [machine.id, machine]));
+    for (const machine of catalog ?? []) {
+      if (!params?.localId || machine.local_id === params.localId) byId.set(machine.id, machine);
+    }
+    if (byId.size > 0) {
+      const filtered = filterMachinesInMemory(
+        Array.from(byId.values()).sort((a, b) =>
+          a.codigo_interno.localeCompare(b.codigo_interno, 'es'),
+        ),
+        params?.categoryId,
+        cleanSearch,
+        statusFilter,
+      );
+      const paged = filtered.slice(offset, offset + limit);
+      return {
+        items: paged,
+        totalCount: filtered.length,
+        hasMore: offset + paged.length < filtered.length,
+        isFromCache: true,
+      };
+    }
+
+    return null;
+  }
+
+  if (params?.preferOffline) {
+    return (
+      (await readCachedPage()) ?? { items: [], totalCount: 0, hasMore: false, isFromCache: true }
+    );
+  }
+
   try {
     const supabase = getSupabase();
 
@@ -445,22 +480,8 @@ export async function fetchMachinesPage(
       isFromCache: false,
     };
   } catch (err) {
-    const cached = await getCachedMachines(params?.localId);
-    if (cached && cached.length > 0) {
-      const filtered = filterMachinesInMemory(
-        cached,
-        params?.categoryId,
-        cleanSearch,
-        statusFilter,
-      );
-      const paged = filtered.slice(offset, offset + limit);
-      return {
-        items: paged,
-        totalCount: filtered.length,
-        hasMore: offset + paged.length < filtered.length,
-        isFromCache: true,
-      };
-    }
+    const cachedPage = await readCachedPage();
+    if (cachedPage) return cachedPage;
 
     throw err instanceof Error ? err : new Error('No se pudo cargar el listado de máquinas.');
   }
@@ -626,7 +647,11 @@ export async function syncAllActiveMachinesForOfflineCache(): Promise<void> {
       }
     }
 
-    await AsyncStorage.setItem(MACHINES_CATALOG_CACHE_KEY, JSON.stringify(catalog));
+    const categoryIds = new Set(catalog.map((machine) => machine.categoria_id).filter(Boolean));
+    await Promise.all([
+      AsyncStorage.setItem(MACHINES_CATALOG_CACHE_KEY, JSON.stringify(catalog)),
+      ...Array.from(categoryIds, (categoryId) => fetchActiveChecklistByCategory(categoryId)),
+    ]);
   } catch (err) {
     console.warn('Could not pre-sync full machine catalog for offline QR resolution:', err);
   }
@@ -660,40 +685,41 @@ async function upsertSingleMachineInCatalogCache(machine: Machine): Promise<void
   }
 }
 
-async function findCachedMachineByUuid(uuid: string): Promise<Machine | null> {
-  const normalizedTarget = uuid.toLowerCase();
-
+async function getCachedMachineCatalog(): Promise<Machine[] | null> {
   try {
     const catalogRaw = await AsyncStorage.getItem(MACHINES_CATALOG_CACHE_KEY);
     if (catalogRaw) {
       const parsed: unknown = JSON.parse(catalogRaw);
       if (Array.isArray(parsed)) {
-        const match = parsed.find(
+        return parsed.filter(
           (item): item is Machine =>
-            isRecord(item) &&
-            typeof item.id === 'string' &&
-            item.id.toLowerCase() === normalizedTarget,
+            isRecord(item) && typeof item.id === 'string' && typeof item.nombre === 'string',
         );
-        if (match) return match;
       }
     }
   } catch {
-    // Fallback to paginated cache below
+    return null;
   }
-
-  const cachedAll = await getCachedMachines();
-  if (cachedAll) {
-    const match = cachedAll.find((item) => item.id.toLowerCase() === normalizedTarget);
-    if (match) return match;
-  }
-
   return null;
+}
+
+async function findCachedMachineByUuid(uuid: string): Promise<Machine | null> {
+  const normalizedTarget = uuid.toLowerCase();
+  const catalog = await getCachedMachineCatalog();
+  const match = catalog?.find((item) => item.id.toLowerCase() === normalizedTarget);
+  if (match) return match;
+  const cachedAll = await getCachedMachines();
+  return cachedAll?.find((item) => item.id.toLowerCase() === normalizedTarget) ?? null;
 }
 
 /**
  * Resolves a machine by its UUID, checking Supabase first and falling back to local cache.
  */
-export async function fetchMachineById(machineId: string): Promise<Machine | null> {
+export async function fetchMachineById(
+  machineId: string,
+  isOnline = true,
+): Promise<Machine | null> {
+  if (!isOnline) return findCachedMachineByUuid(machineId);
   const result = await resolveMachineByQrCode(machineId);
   return result.maquina;
 }

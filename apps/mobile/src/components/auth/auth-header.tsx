@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import React from 'react';
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import React, { useState } from 'react';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const bgImage = require('@/assets/images/bowling-bg.jpg');
@@ -17,10 +17,13 @@ export function AuthHeader({
   subtitle = 'Sistema de gestión de mantenciones',
 }: AuthHeaderProps) {
   const insets = useSafeAreaInsets();
-  const { height: screenHeight } = useWindowDimensions();
+  const [initialScreenHeight] = useState(() => Dimensions.get('window').height);
 
-  // Altura proporcional que muestra más imagen de bowling (~42-44% de pantalla)
-  const headerHeight = Math.min(380, Math.max(300, Math.round(screenHeight * 0.43) + insets.top));
+  // Altura proporcional fija que muestra más imagen de bowling (~42-44% de pantalla) sin encogerse al abrir el teclado
+  const headerHeight = Math.min(
+    380,
+    Math.max(300, Math.round(initialScreenHeight * 0.43) + insets.top),
+  );
 
   // Ajustar ligeramente el tamaño si el título es más largo (ej. 'Restablecer contraseña')
   const isLongTitle = title.length > 16;

@@ -16,6 +16,7 @@ export default function AppLayout() {
       screenOptions={{
         headerShown: false,
         animation: 'none',
+        tabBarHideOnKeyboard: true,
         sceneStyle: { backgroundColor: '#f8fafc' },
         tabBarStyle: {
           position: 'absolute',

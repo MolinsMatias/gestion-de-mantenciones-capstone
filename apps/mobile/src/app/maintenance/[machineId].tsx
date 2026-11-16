@@ -1,13 +1,13 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { AlertCircle, Check, Info, WifiOff } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   Animated,
+  AppState,
   Keyboard,
   Easing,
   useWindowDimensions,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   Text,
@@ -26,7 +26,7 @@ import { MaintenanceFooter } from '@/components/maintenance/maintenance-footer';
 import { MaintenanceStepHeading } from '@/components/maintenance/maintenance-step-heading';
 import { KeyboardScrollView } from '@/components/shared/keyboard-scroll-view';
 import { Skeleton } from '@/components/shared/skeleton';
-import { useNetworkStatus } from '@/hooks/use-network-status';
+import { useNetworkStatus } from '@/providers/network-provider';
 import { useAuth } from '@/providers/auth-provider';
 import {
   fetchActiveChecklistByCategory,
@@ -60,7 +60,7 @@ export default function MaintenanceScreen() {
   const { machineId } = useLocalSearchParams<{ machineId: string }>();
   const router = useRouter();
   const { width: viewportWidth } = useWindowDimensions();
-  const { isOnline } = useNetworkStatus();
+  const { isOnline, checkConnectivityNow } = useNetworkStatus();
   const { session } = useAuth();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -136,6 +136,11 @@ export default function MaintenanceScreen() {
   const [maintenanceId, setMaintenanceId] = useState<string>(generateUuid);
   const [maintenanceType, setMaintenanceType] = useState<MaintenanceType>('preventiva');
   const [startedAt, setStartedAt] = useState<string>(() => new Date().toISOString());
+  const [timer, setTimer] = useState<{ elapsedMs: number; runningSince: number | null }>({
+    elapsedMs: 0,
+    runningSince: null,
+  });
+  const timerRef = useRef(timer);
 
   // Checklist answers indexed by item_id
   const [answers, setAnswers] = useState<Record<string, ItemAnswer>>({});
@@ -154,7 +159,7 @@ export default function MaintenanceScreen() {
   const submitLockRef = useRef(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isTimerStopped = feedback?.kind === 'sent';
+  const isTimerStopped = feedback?.kind === 'sent' || feedback?.kind === 'queued';
 
   // Initial load
   useEffect(() => {
@@ -171,7 +176,8 @@ export default function MaintenanceScreen() {
       setErrorMessage(null);
 
       try {
-        const foundMachine = await fetchMachineById(machineId);
+        const online = await checkConnectivityNow();
+        const foundMachine = await fetchMachineById(machineId, online);
         if (!mounted) return;
 
         if (!foundMachine) {
@@ -183,12 +189,17 @@ export default function MaintenanceScreen() {
         setMachine(foundMachine);
 
         // Fetch checklist for category
-        const foundChecklist = await fetchActiveChecklistByCategory(foundMachine.categoria_id);
+        const foundChecklist = await fetchActiveChecklistByCategory(
+          foundMachine.categoria_id,
+          online,
+        );
         if (!mounted) return;
 
         if (!foundChecklist || foundChecklist.secciones.length === 0) {
           setErrorMessage(
-            `No hay una pauta de mantenimiento activa cargada para la categoría "${foundMachine.categoria.nombre}".`,
+            online
+              ? `No hay una pauta de mantenimiento activa cargada para la categoría "${foundMachine.categoria.nombre}".`
+              : 'La pauta de este equipo todavía no está guardada. Conéctate a internet para descargarla.',
           );
           setIsLoading(false);
           return;
@@ -198,10 +209,21 @@ export default function MaintenanceScreen() {
 
         // Check if there's an existing draft to resume
         const draft = await getMaintenanceDraft(machineId);
-        if (draft && mounted) {
+        if (!mounted) return;
+        if (draft) {
           setMaintenanceId(draft.mantencion_id);
           setMaintenanceType(draft.tipo);
           setStartedAt(draft.iniciada_at);
+          const savedElapsed = draft.tiempo_activo_ms;
+          timerRef.current = {
+            elapsedMs:
+              typeof savedElapsed === 'number' && Number.isFinite(savedElapsed)
+                ? Math.max(0, savedElapsed)
+                : 0,
+            runningSince: null,
+          };
+          setTimer(timerRef.current);
+          setHasUnsavedChanges(true);
           setAnswers(draft.respuestas || {});
           setFinalStatus(draft.estado_equipo_final);
           setRequiresParts(draft.requiere_repuestos);
@@ -209,6 +231,8 @@ export default function MaintenanceScreen() {
           setPendingTasks(draft.pendientes || '');
           setPerformedWork(draft.trabajos_realizados || '');
           setGeneralObservations(draft.observaciones || '');
+        } else {
+          setStartedAt(new Date().toISOString());
         }
       } catch (err) {
         if (mounted) {
@@ -228,17 +252,7 @@ export default function MaintenanceScreen() {
     return () => {
       mounted = false;
     };
-  }, [machineId]);
-
-  // Auto-save draft on change
-  const scheduleAutoSave = useCallback((draft: MaintenanceDraft) => {
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
-    }
-    autoSaveTimeoutRef.current = setTimeout(() => {
-      void saveMaintenanceDraft(draft);
-    }, 1000);
-  }, []);
+  }, [checkConnectivityNow, machineId]);
 
   const currentDraft = useMemo<MaintenanceDraft | null>(() => {
     if (!machine || !checklist) return null;
@@ -272,11 +286,66 @@ export default function MaintenanceScreen() {
     generalObservations,
   ]);
 
-  useEffect(() => {
-    if (currentDraft && hasUnsavedChanges) {
-      scheduleAutoSave(currentDraft);
+  const draftToSaveRef = useRef<MaintenanceDraft | null>(null);
+  const getElapsedMs = useCallback(() => {
+    const { elapsedMs, runningSince } = timerRef.current;
+    return Math.floor(
+      elapsedMs + (runningSince === null ? 0 : Math.max(0, performance.now() - runningSince)),
+    );
+  }, []);
+
+  const stopTimer = useCallback(() => {
+    if (timerRef.current.runningSince === null) return;
+    timerRef.current = { elapsedMs: getElapsedMs(), runningSince: null };
+    setTimer(timerRef.current);
+  }, [getElapsedMs, setTimer]);
+
+  const saveLatestDraft = useCallback(() => {
+    const draft = draftToSaveRef.current;
+    if (draft && !submitLockRef.current) {
+      void saveMaintenanceDraft({ ...draft, tiempo_activo_ms: getElapsedMs() });
     }
-  }, [currentDraft, hasUnsavedChanges, scheduleAutoSave]);
+  }, [getElapsedMs]);
+
+  useLayoutEffect(() => {
+    draftToSaveRef.current = hasUnsavedChanges ? currentDraft : null;
+    if (!draftToSaveRef.current) return;
+    autoSaveTimeoutRef.current = setTimeout(saveLatestDraft, 1000);
+    return () => clearTimeout(autoSaveTimeoutRef.current ?? undefined);
+  }, [currentDraft, hasUnsavedChanges, saveLatestDraft]);
+
+  const canRunTimer =
+    !isLoading &&
+    Boolean(machine && checklist) &&
+    !errorMessage &&
+    !isSubmitting &&
+    !isTimerStopped;
+  useFocusEffect(
+    useCallback(() => {
+      if (!canRunTimer) return;
+
+      const start = () => {
+        if (submitLockRef.current || timerRef.current.runningSince !== null) return;
+        timerRef.current = { ...timerRef.current, runningSince: performance.now() };
+        setTimer(timerRef.current);
+      };
+      const pause = () => {
+        stopTimer();
+        clearTimeout(autoSaveTimeoutRef.current ?? undefined);
+        saveLatestDraft();
+      };
+
+      if (AppState.currentState === 'active' || AppState.currentState === null) start();
+      const subscription = AppState.addEventListener('change', (state) => {
+        if (state === 'active') start();
+        else pause();
+      });
+      return () => {
+        subscription.remove();
+        pause();
+      };
+    }, [canRunTimer, saveLatestDraft, setTimer, stopTimer]),
+  );
 
   const handleSetAnswer = (itemId: string, result: ItemResult, defaultObs?: string) => {
     setHasUnsavedChanges(true);
@@ -400,14 +469,28 @@ export default function MaintenanceScreen() {
     }
 
     submitLockRef.current = true;
+    stopTimer();
     setIsSubmitting(true);
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
       autoSaveTimeoutRef.current = null;
     }
     try {
-      await saveMaintenanceDraft(currentDraft);
-      const result = await submitMaintenanceRecord(currentDraft, tecnicoId, isOnline);
+      const finishedDraft = { ...currentDraft, tiempo_activo_ms: getElapsedMs() };
+      await saveMaintenanceDraft(finishedDraft);
+      const result = await submitMaintenanceRecord(
+        finishedDraft,
+        tecnicoId,
+        isOnline,
+        machine
+          ? {
+              name: machine.nombre,
+              code: machine.codigo_interno,
+              categoryId: machine.categoria_id,
+              categoryName: machine.categoria.nombre,
+            }
+          : undefined,
+      );
       if (result.exito) {
         setHasUnsavedChanges(false);
         setFeedback({
@@ -416,7 +499,7 @@ export default function MaintenanceScreen() {
             ? 'Guardada en el dispositivo'
             : 'Mantención enviada con éxito',
           message: result.guardado_offline
-            ? `El envío al servidor está pendiente. ${result.mensaje}`
+            ? `El envío a la nube está pendiente. ${result.mensaje}`
             : result.mensaje,
         });
       } else {
@@ -448,8 +531,8 @@ export default function MaintenanceScreen() {
         <MaintenanceHeader
           title="Equipo e intervención"
           step={1}
-          startedAt={startedAt}
-          isTimerStopped={isTimerStopped}
+          elapsedMs={timer.elapsedMs}
+          runningSince={timer.runningSince}
           isOnline={isOnline}
           onBack={() => router.back()}
         />
@@ -543,19 +626,14 @@ export default function MaintenanceScreen() {
     changeStep(activeStep + 1);
   };
 
-  const ScreenContainer = Platform.OS === 'ios' ? KeyboardAvoidingView : View;
-
   return (
-    <ScreenContainer
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      className="flex-1 bg-slate-50"
-    >
+    <View className="flex-1 bg-slate-50">
       <MaintenanceHeader
         title={stepTitle}
         step={activeStep + 1}
         totalSteps={totalSteps}
-        startedAt={startedAt}
-        isTimerStopped={isTimerStopped}
+        elapsedMs={timer.elapsedMs}
+        runningSince={timer.runningSince}
         isOnline={isOnline}
         onBack={() => router.back()}
         disabled={isSubmitting || isTransitioning}
@@ -945,6 +1023,6 @@ export default function MaintenanceScreen() {
         isLastStep={isLastStep}
       />
       <MaintenanceFeedbackDialog feedback={feedback} onConfirm={handleFeedbackConfirm} />
-    </ScreenContainer>
+    </View>
   );
 }

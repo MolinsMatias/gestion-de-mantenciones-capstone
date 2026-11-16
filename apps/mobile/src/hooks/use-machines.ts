@@ -1,5 +1,7 @@
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useNetworkStatus } from '@/providers/network-provider';
 import {
   fetchMachineCategories,
   fetchMachinesPage,
@@ -39,6 +41,7 @@ export function useMachines({
   searchQuery,
   statusFilter,
 }: UseMachinesOptions): UseMachinesResult {
+  const { isOnline } = useNetworkStatus();
   const [rawMachines, setRawMachines] = useState<Machine[]>([]);
   const [categoryList, setCategoryList] = useState<MachineCategory[]>([]);
   const [serverTotalCount, setServerTotalCount] = useState<number>(0);
@@ -52,7 +55,6 @@ export function useMachines({
 
   const loadingMoreRef = useRef<boolean>(false);
   const requestIdRef = useRef<number>(0);
-  const isInitialMount = useRef<boolean>(true);
 
   // Debounce del texto de búsqueda para evitar disparar consultas en cada tecla
   useEffect(() => {
@@ -74,6 +76,7 @@ export function useMachines({
       if (mounted && cached.length > 0) {
         setCategoryList(cached);
       }
+      if (!mounted || !isOnline) return;
       const fresh = await fetchMachineCategories();
       if (mounted && fresh.length > 0) {
         setCategoryList(fresh);
@@ -85,7 +88,7 @@ export function useMachines({
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [isOnline]);
 
   const selectedCategoryId = useMemo(() => {
     if (selectedCategory === 'Todos') return undefined;
@@ -93,25 +96,16 @@ export function useMachines({
     return found?.id;
   }, [categoryList, selectedCategory]);
 
-  // Carga de la primera página cuando cambian local, categoría, búsqueda o estado operativo
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-
-    let mounted = true;
-    const currentRequestId = ++requestIdRef.current;
-
-    async function loadFirstPage() {
-      await Promise.resolve();
-      if (!mounted || currentRequestId !== requestIdRef.current) return;
-
-      setIsLoading(true);
+  const loadFirstPage = useCallback(
+    async (refreshing: boolean) => {
+      const currentRequestId = ++requestIdRef.current;
+      setIsLoading(!refreshing);
+      setIsRefreshing(refreshing);
       setError(null);
 
       try {
         const result = await fetchMachinesPage({
+          preferOffline: !isOnline,
           localId,
           categoryId: selectedCategoryId,
           searchQuery: debouncedSearch,
@@ -120,40 +114,35 @@ export function useMachines({
           limit: MACHINES_PAGE_SIZE,
         });
 
-        if (mounted && currentRequestId === requestIdRef.current) {
-          setRawMachines(result.items);
-          setServerTotalCount(result.totalCount);
-          setHasMore(result.hasMore);
-          if (result.isFromCache) {
-            setIsFromCache(true);
-            setError('No se pudo conectar con el servidor.');
-          } else {
-            setIsFromCache(false);
-            setError(null);
-          }
-        }
+        if (currentRequestId !== requestIdRef.current) return;
+
+        setRawMachines(result.items);
+        setServerTotalCount(result.totalCount);
+        setHasMore(result.hasMore);
+        setIsFromCache(Boolean(result.isFromCache));
+        setError(isOnline && result.isFromCache ? 'No se pudo conectar con el servidor.' : null);
       } catch (err) {
-        if (mounted && currentRequestId === requestIdRef.current) {
-          const message =
-            err instanceof Error
-              ? err.message
-              : 'No se pudo obtener el listado de máquinas desde el servidor.';
-          setError(message);
-          setIsFromCache(false);
-        }
+        if (currentRequestId !== requestIdRef.current) return;
+        setError(err instanceof Error ? err.message : 'No se pudo cargar el listado de máquinas.');
+        setIsFromCache(false);
       } finally {
-        if (mounted && currentRequestId === requestIdRef.current) {
+        if (currentRequestId === requestIdRef.current) {
           setIsLoading(false);
+          setIsRefreshing(false);
         }
       }
-    }
+    },
+    [isOnline, localId, selectedCategoryId, debouncedSearch, statusFilter],
+  );
 
-    void loadFirstPage();
-
-    return () => {
-      mounted = false;
-    };
-  }, [localId, selectedCategoryId, debouncedSearch, statusFilter]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadFirstPage(false);
+      return () => {
+        requestIdRef.current++;
+      };
+    }, [loadFirstPage]),
+  );
 
   // Paginación incremental al deslizar hacia el final de la lista
   const loadMore = useCallback(async () => {
@@ -161,6 +150,7 @@ export function useMachines({
       return;
     }
 
+    const currentRequestId = requestIdRef.current;
     loadingMoreRef.current = true;
     setIsLoadingMore(true);
 
@@ -171,10 +161,12 @@ export function useMachines({
         categoryId: selectedCategoryId,
         searchQuery: debouncedSearch,
         statusFilter,
+        preferOffline: !isOnline,
         offset: nextOffset,
         limit: MACHINES_PAGE_SIZE,
       });
 
+      if (currentRequestId !== requestIdRef.current) return;
       setRawMachines((prev) => {
         const existingIds = new Set(prev.map((item) => item.id));
         const appended = result.items.filter((item) => !existingIds.has(item.id));
@@ -192,6 +184,7 @@ export function useMachines({
     debouncedSearch,
     hasMore,
     isLoading,
+    isOnline,
     isRefreshing,
     localId,
     rawMachines.length,
@@ -200,58 +193,10 @@ export function useMachines({
   ]);
 
   const refresh = useCallback(async () => {
-    const currentRequestId = ++requestIdRef.current;
-    if (rawMachines.length === 0) {
-      setIsLoading(true);
-    } else {
-      setIsRefreshing(true);
-    }
-    setError(null);
-
-    try {
-      const [freshCategories, result] = await Promise.all([
-        fetchMachineCategories(),
-        fetchMachinesPage({
-          localId,
-          categoryId: selectedCategoryId,
-          searchQuery: debouncedSearch,
-          statusFilter,
-          offset: 0,
-          limit: MACHINES_PAGE_SIZE,
-        }),
-      ]);
-
-      if (currentRequestId === requestIdRef.current) {
-        if (freshCategories.length > 0) {
-          setCategoryList(freshCategories);
-        }
-        setRawMachines(result.items);
-        setServerTotalCount(result.totalCount);
-        setHasMore(result.hasMore);
-        if (result.isFromCache) {
-          setIsFromCache(true);
-          setError('No se pudo conectar con el servidor.');
-        } else {
-          setIsFromCache(false);
-          setError(null);
-        }
-      }
-    } catch (err) {
-      if (currentRequestId === requestIdRef.current) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : 'No se pudo obtener el listado de máquinas desde el servidor.';
-        setError(message);
-        setIsFromCache(false);
-      }
-    } finally {
-      if (currentRequestId === requestIdRef.current) {
-        setIsRefreshing(false);
-        setIsLoading(false);
-      }
-    }
-  }, [debouncedSearch, localId, rawMachines.length, selectedCategoryId, statusFilter]);
+    if (!isOnline) return;
+    const [freshCategories] = await Promise.all([fetchMachineCategories(), loadFirstPage(true)]);
+    if (freshCategories.length > 0) setCategoryList(freshCategories);
+  }, [isOnline, loadFirstPage]);
 
   const categories = useMemo(() => {
     return ['Todos', ...categoryList.map((cat) => cat.nombre)];

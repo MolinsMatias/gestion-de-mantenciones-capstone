@@ -98,7 +98,7 @@ export default function LoginScreen() {
       {/* Barra de estado con texto blanco translúcida sobre el encabezado */}
       <StatusBar style="light" />
       <KeyboardScrollView
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: '#f8fafc' }}
         contentContainerStyle={{ flexGrow: 1 }}
         contentInsetAdjustmentBehavior="never"
         automaticallyAdjustContentInsets={false}
@@ -108,36 +108,38 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
         bottomOffset={48}
       >
-        {/* El encabezado adapta su título según el modo de autenticación */}
-        <AuthHeader
-          title={authMode === 'recovery' ? 'Restablecer contraseña' : 'Bienvenido'}
-          subtitle={
-            authMode === 'recovery'
-              ? 'Ingresa tu RUN registrado y te enviaremos las instrucciones a tu correo para restablecer tu acceso.'
-              : 'Sistema de gestión de mantenciones'
-          }
-        />
+        <View className="flex-1 bg-brand-dark">
+          {/* El encabezado adapta su título según el modo de autenticación */}
+          <AuthHeader
+            title={authMode === 'recovery' ? 'Restablecer contraseña' : 'Bienvenido'}
+            subtitle={
+              authMode === 'recovery'
+                ? 'Ingresa tu RUN registrado y te enviaremos las instrucciones a tu correo para restablecer tu acceso.'
+                : 'Sistema de gestión de mantenciones'
+            }
+          />
 
-        {/* El formulario conmuta de manera inmediata sin desvanecimientos a negro */}
-        <View className="flex-1">
-          {authMode === 'login' ? (
-            <LoginForm
-              onSubmit={handleLogin}
-              isLoading={isLoading}
-              errorMessage={errorMessage}
-              onForgotPassword={() => transitionTo('recovery')}
-            />
-          ) : (
-            <RecoveryPasswordForm
-              onSubmit={handleRecovery}
-              isLoading={isLoading}
-              errorMessage={errorMessage}
-              isSuccess={isRecoverySuccess}
-              maskedEmail={maskedEmail}
-              onBackToLogin={handleBackToLogin}
-              onResend={() => setIsRecoverySuccess(false)}
-            />
-          )}
+          {/* El formulario conmuta de manera inmediata sin desvanecimientos a negro */}
+          <View className="flex-1">
+            {authMode === 'login' ? (
+              <LoginForm
+                onSubmit={handleLogin}
+                isLoading={isLoading}
+                errorMessage={errorMessage}
+                onForgotPassword={() => transitionTo('recovery')}
+              />
+            ) : (
+              <RecoveryPasswordForm
+                onSubmit={handleRecovery}
+                isLoading={isLoading}
+                errorMessage={errorMessage}
+                isSuccess={isRecoverySuccess}
+                maskedEmail={maskedEmail}
+                onBackToLogin={handleBackToLogin}
+                onResend={() => setIsRecoverySuccess(false)}
+              />
+            )}
+          </View>
         </View>
       </KeyboardScrollView>
     </View>

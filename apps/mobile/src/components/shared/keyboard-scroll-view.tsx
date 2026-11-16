@@ -2,7 +2,6 @@ import React, { useLayoutEffect, useRef } from 'react';
 import type { ScrollViewProps } from 'react-native';
 import {
   KeyboardAwareScrollView,
-  KeyboardProvider,
   type KeyboardAwareScrollViewRef,
 } from 'react-native-keyboard-controller';
 
@@ -26,16 +25,14 @@ export function KeyboardScrollView({
   }, [resetScrollKey]);
 
   return (
-    <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
-      <KeyboardAwareScrollView
-        ref={scrollRef}
-        bottomOffset={bottomOffset}
-        keyboardShouldPersistTaps={keyboardShouldPersistTaps}
-        keyboardDismissMode={keyboardDismissMode}
-        {...props}
-      >
-        {children}
-      </KeyboardAwareScrollView>
-    </KeyboardProvider>
+    <KeyboardAwareScrollView
+      ref={scrollRef}
+      bottomOffset={bottomOffset}
+      keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+      keyboardDismissMode={keyboardDismissMode}
+      {...props}
+    >
+      {children}
+    </KeyboardAwareScrollView>
   );
 }

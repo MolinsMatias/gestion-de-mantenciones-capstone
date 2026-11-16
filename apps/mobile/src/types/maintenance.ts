@@ -8,6 +8,7 @@ export interface MaintenanceItem {
   etiqueta_tiempo: string;
   estado_equipo_final?: FinalMachineStatus;
   tipo_icono: 'wrench' | 'zap' | 'settings' | 'completed';
+  pendiente_envio?: boolean;
 }
 
 export interface HistoryRecord extends MaintenanceItem {
@@ -15,7 +16,7 @@ export interface HistoryRecord extends MaintenanceItem {
   tipo: MaintenanceType;
   iniciada_at: string;
   finalizada_at: string | null;
-  enviada_at: string;
+  enviada_at: string | null;
   trabajos_realizados: string;
   estado_equipo_final: FinalMachineStatus;
   requiere_repuestos: boolean;

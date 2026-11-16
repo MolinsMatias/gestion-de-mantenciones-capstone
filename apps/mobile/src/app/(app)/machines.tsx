@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { AlertCircle, RefreshCw, Search, SlidersHorizontal, X } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import {
@@ -22,6 +22,7 @@ import { AppHeader } from '@/components/shared/app-header';
 import { useMachines } from '@/hooks/use-machines';
 import { useWebPullToRefresh } from '@/hooks/use-web-pull-to-refresh';
 import { useLocals } from '@/providers/local-provider';
+import { useNetworkStatus } from '@/providers/network-provider';
 import type { Machine, MachineStatusFilter } from '@/types/machine';
 
 const STATUS_FILTER_OPTIONS: { value: MachineStatusFilter; label: string }[] = [
@@ -35,6 +36,7 @@ export default function MachinesScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { activeLocal } = useLocals();
+  const { isOnline } = useNetworkStatus();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Todos');
@@ -59,13 +61,8 @@ export default function MachinesScreen() {
     statusFilter,
   });
 
-  useFocusEffect(
-    useCallback(() => {
-      void refresh();
-    }, [refresh]),
-  );
-
   const { containerRef, pullDistance, isThresholdReached, handleScroll } = useWebPullToRefresh({
+    enabled: isOnline,
     isRefreshing,
     onRefresh: refresh,
   });
@@ -259,7 +256,7 @@ export default function MachinesScreen() {
 
       {/* Lista virtualizada y paginada con soporte Pull-to-Refresh en Android y Web PWA */}
       <View ref={containerRef} className="flex-1">
-        {Platform.OS === 'web' && (pullDistance > 0 || isRefreshing) ? (
+        {Platform.OS === 'web' && isOnline && (pullDistance > 0 || isRefreshing) ? (
           <View
             accessible={true}
             accessibilityRole="progressbar"
@@ -311,12 +308,14 @@ export default function MachinesScreen() {
           onEndReached={() => void loadMore()}
           onEndReachedThreshold={0.4}
           refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={() => void refresh()}
-              tintColor="#2563eb"
-              colors={['#2563eb']}
-            />
+            isOnline ? (
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={() => void refresh()}
+                tintColor="#2563eb"
+                colors={['#2563eb']}
+              />
+            ) : undefined
           }
           contentContainerStyle={{
             paddingTop: 12,

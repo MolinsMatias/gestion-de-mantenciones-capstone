@@ -1,8 +1,8 @@
-import React, { useEffect, useLayoutEffect, useRef } from 'react';
+import React, { useLayoutEffect, useRef } from 'react';
 import type { ScrollViewProps } from 'react-native';
-import { ScrollView, View } from 'react-native';
+import { ScrollView } from 'react-native';
 
-import { useKeyboardOffset } from '@/hooks/use-keyboard-offset';
+import { useIsKeyboardVisible } from '@/hooks/use-keyboard-offset';
 
 export interface KeyboardScrollViewProps extends ScrollViewProps {
   bottomOffset?: number;
@@ -37,7 +37,7 @@ export function KeyboardScrollView({
   bottomOffset = 24,
   ...props
 }: KeyboardScrollViewProps) {
-  const keyboardOffset = useKeyboardOffset();
+  const isKeyboardVisible = useIsKeyboardVisible();
   const scrollRef = useRef<ScrollView>(null);
 
   useLayoutEffect(() => {
@@ -46,12 +46,13 @@ export function KeyboardScrollView({
     }
   }, [resetScrollKey]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let settleId: ReturnType<typeof setTimeout> | null = null;
 
     const ensureFocusedInputVisible = () => {
+      settleId = null;
       const scrollNode = getDomScrollNode(scrollRef.current);
       const activeEl = document.activeElement;
       if (
@@ -68,34 +69,56 @@ export function KeyboardScrollView({
       const scrollRect = scrollNode.getBoundingClientRect();
       const inputRect = activeEl.getBoundingClientRect();
       const viewport = window.visualViewport;
+      const pinnedRoot = scrollNode.closest('#root');
+      const viewportTop = pinnedRoot?.getBoundingClientRect().top ?? viewport?.offsetTop ?? 0;
+      const visibleTop = viewport ? Math.max(scrollRect.top, viewportTop) : scrollRect.top;
       const visibleBottom = viewport
-        ? Math.min(scrollRect.bottom, viewport.offsetTop + viewport.height)
+        ? Math.min(scrollRect.bottom, viewportTop + viewport.height)
         : scrollRect.bottom;
+      const visibleHeight = visibleBottom - visibleTop;
+      if (visibleHeight <= 0) return;
 
-      const desiredBottomMargin = Math.max(24, bottomOffset);
-      const overlapBottom = inputRect.bottom + desiredBottomMargin - visibleBottom;
-
-      if (overlapBottom > 4) {
-        scrollNode.scrollTop += overlapBottom;
-      } else if (inputRect.top < scrollRect.top + 16) {
-        scrollNode.scrollTop -= scrollRect.top + 16 - inputRect.top;
+      if (inputRect.height > visibleHeight) {
+        if (Math.abs(inputRect.top - visibleTop) > 1) {
+          scrollNode.scrollTop += inputRect.top - visibleTop;
+        }
+      } else if (inputRect.bottom > visibleBottom + 1) {
+        scrollNode.scrollTop += inputRect.bottom - visibleBottom;
+      } else if (inputRect.top < visibleTop - 1) {
+        scrollNode.scrollTop += inputRect.top - visibleTop;
       }
     };
 
     const scheduleEnsureVisible = () => {
-      if (timeoutId !== null) clearTimeout(timeoutId);
-      timeoutId = setTimeout(ensureFocusedInputVisible, 120);
+      if (settleId !== null) clearTimeout(settleId);
+      settleId = setTimeout(ensureFocusedInputVisible, 180);
     };
+
+    scheduleEnsureVisible();
+
+    const scrollNode = getDomScrollNode(scrollRef.current);
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(scheduleEnsureVisible);
+    if (scrollNode) resizeObserver?.observe(scrollNode);
 
     document.addEventListener('focusin', scheduleEnsureVisible);
+    document.addEventListener('input', scheduleEnsureVisible);
+    window.addEventListener('resize', scheduleEnsureVisible);
+    window.addEventListener('scroll', scheduleEnsureVisible);
     window.visualViewport?.addEventListener('resize', scheduleEnsureVisible);
+    window.visualViewport?.addEventListener('scroll', scheduleEnsureVisible);
 
     return () => {
-      if (timeoutId !== null) clearTimeout(timeoutId);
+      if (settleId !== null) clearTimeout(settleId);
+      resizeObserver?.disconnect();
       document.removeEventListener('focusin', scheduleEnsureVisible);
+      document.removeEventListener('input', scheduleEnsureVisible);
+      window.removeEventListener('resize', scheduleEnsureVisible);
+      window.removeEventListener('scroll', scheduleEnsureVisible);
       window.visualViewport?.removeEventListener('resize', scheduleEnsureVisible);
+      window.visualViewport?.removeEventListener('scroll', scheduleEnsureVisible);
     };
-  }, [bottomOffset]);
+  }, [bottomOffset, isKeyboardVisible]);
 
   return (
     <ScrollView
@@ -106,11 +129,12 @@ export function KeyboardScrollView({
       contentContainerStyle={contentContainerStyle}
     >
       {children}
-      {keyboardOffset > 0 ? (
-        <View
+      {isKeyboardVisible ? (
+        <div
+          aria-hidden="true"
           style={{
-            height: keyboardOffset + bottomOffset,
-            minHeight: keyboardOffset + bottomOffset,
+            height: `max(0px, calc(100dvh - var(--keyboard-viewport-height, 100dvh) + ${bottomOffset}px))`,
+            flexShrink: 0,
           }}
         />
       ) : null}

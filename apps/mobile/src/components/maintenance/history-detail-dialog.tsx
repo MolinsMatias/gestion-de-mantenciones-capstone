@@ -54,8 +54,12 @@ export function HistoryDetailDialog({
           <Text accessibilityRole="header" className="text-xl font-bold text-slate-900">
             {record.titulo}
           </Text>
-          <Text className="mb-4 mt-1 text-sm font-medium text-emerald-700">
-            Intervención enviada · Solo lectura
+          <Text
+            className={`mb-4 mt-1 text-sm font-medium ${record.pendiente_envio ? 'text-amber-800' : 'text-emerald-700'}`}
+          >
+            {record.pendiente_envio
+              ? 'Guardada en el dispositivo · Pendiente de envío'
+              : 'Intervención enviada · Solo lectura'}
           </Text>
           <ScrollView showsVerticalScrollIndicator keyboardShouldPersistTaps="handled">
             {fields.map(([label, value]) => (

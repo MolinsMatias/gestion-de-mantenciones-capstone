@@ -13,10 +13,10 @@ export default function Root({ children }: PropsWithChildren) {
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-        {/* El fondo cubre las áreas seguras; el contenido gestiona sus propios insets. Bloquea el zoom y redimensiona el layout con el teclado virtual en móviles/PWA. */}
+        {/* El fondo cubre las áreas seguras; el contenido gestiona sus propios insets. Bloquea el zoom y superpone el teclado virtual sobre el visualViewport sin redimensionar el layout en móviles/PWA. */}
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"
+          content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-visual"
         />
 
         {/* Enlace al Web App Manifest para instalación PWA */}
@@ -59,15 +59,19 @@ html, body, #root, [dir="auto"], input, textarea, button, select {
 }
 
 /* El documento aporta un fondo de respaldo; cada pantalla pinta sus propias áreas.
-   Usamos 100dvh sin position:fixed en body para que Chrome Android (resizes-content)
-   y Safari iOS redimensionen el viewport limpiamente sin perder el foco del teclado IME. */
+   Usamos 100dvh sin position:fixed ni 100vh en body para que la PWA instalada respete
+   las barras del sistema sin desbordar por debajo (evitando cortar el tab bar inferior)
+   y que con interactive-widget=resizes-visual el documento conserve su altura. */
 html, body {
   height: 100%;
   height: 100dvh;
   width: 100%;
   margin: 0;
   padding: 0;
-  background-color: #07172C;
+  background-color: #f8fafc;
+  background-image: linear-gradient(#07172C, #07172C);
+  background-repeat: no-repeat;
+  background-size: 100% env(safe-area-inset-top, 0px);
   overflow: hidden;
   overscroll-behavior-y: none;
   overscroll-behavior-x: none;
@@ -75,12 +79,15 @@ html, body {
 
 #root {
   /* Sigue el viewport disponible; el scroll y los insets viven dentro de Expo. */
+  position: fixed;
+  top: var(--keyboard-viewport-top, 0px);
+  inset-inline: 0;
   height: 100%;
   height: 100dvh;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background-color: #07172C;
+  background-color: #f8fafc;
 }
 
 /* Evitar selección accidental de textos como en app nativa */

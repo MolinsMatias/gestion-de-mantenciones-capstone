@@ -1,17 +1,9 @@
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
-import {
-  AlertCircle,
-  AlertTriangle,
-  Check,
-  MapPin,
-  Plus,
-  Wifi,
-  WifiOff,
-} from 'lucide-react-native';
+import { AlertCircle, AlertTriangle, Check, MapPin, Plus } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -21,7 +13,7 @@ import {
 } from '@/components/maintenance/today-maintenance-log';
 import { LocalBottomSheet } from '@/components/local/local-bottom-sheet';
 import { AppHeader } from '@/components/shared/app-header';
-import { useNetworkStatus } from '@/hooks/use-network-status';
+import { useNetworkStatus } from '@/providers/network-provider';
 import { useLocals } from '@/providers/local-provider';
 import { syncAllActiveMachinesForOfflineCache } from '@/services/machines';
 
@@ -35,10 +27,7 @@ export default function HomeScreen() {
     router.push('/(app)/machines');
   };
 
-  const { isOnline, isSimulatingOffline, toggleSimulatedOffline, checkConnectivityNow } =
-    useNetworkStatus();
-
-  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const { isOnline } = useNetworkStatus();
   const todayLog = useTodayMaintenanceLog();
   const {
     locals,
@@ -62,15 +51,11 @@ export default function HomeScreen() {
     }
   }, [isOnline]);
 
-  const handleConnectivityPress = () => {
-    setIsStatusModalOpen(true);
-  };
-
   return (
     <View className="flex-1 bg-[#f8fafc]">
       <View className="shrink-0 bg-[#f8fafc] pb-4">
         {/* Cabecera oscura institucional */}
-        <AppHeader isOnline={isOnline} onPressConnectivity={handleConnectivityPress} />
+        <AppHeader />
 
         {/* Contexto del local fijo bajo la cabecera */}
         <View className="-mt-3.5 w-full max-w-xl flex-col gap-4 self-center px-4">
@@ -308,106 +293,6 @@ export default function HomeScreen() {
           <TodayMaintenanceList state={todayLog} />
         </View>
       </ScrollView>
-
-      {/* Modal interactivo de sincronización y estado de red (compatible con Android APK y PWA Web) */}
-      <Modal
-        visible={isStatusModalOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsStatusModalOpen(false)}
-        statusBarTranslucent
-      >
-        <Pressable
-          onPress={() => setIsStatusModalOpen(false)}
-          className="flex-1 items-center justify-center bg-black/60 p-5"
-        >
-          <Pressable
-            onPress={(e) => {
-              (e as unknown as { stopPropagation?: () => void })?.stopPropagation?.();
-            }}
-            className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
-          >
-            <View className="items-center text-center">
-              <View
-                className={`mb-3.5 h-14 w-14 items-center justify-center rounded-2xl ${
-                  isOnline
-                    ? 'border border-emerald-200 bg-emerald-50'
-                    : 'border border-amber-200 bg-amber-50'
-                }`}
-              >
-                {isOnline ? (
-                  <Wifi size={28} color="#059669" strokeWidth={2.4} />
-                ) : (
-                  <WifiOff size={28} color="#d97706" strokeWidth={2.4} />
-                )}
-              </View>
-
-              <Text className="text-center text-lg font-bold text-slate-900">
-                {isOnline ? 'Conexión a Internet activa' : 'Modo local (Sin conexión)'}
-              </Text>
-
-              <View
-                className={`mt-1.5 rounded-full px-2.5 py-0.5 ${
-                  isOnline ? 'bg-emerald-100' : 'bg-amber-100'
-                }`}
-              >
-                <Text
-                  className={`text-[11px] font-semibold ${
-                    isOnline ? 'text-emerald-800' : 'text-amber-800'
-                  }`}
-                >
-                  {isOnline
-                    ? 'Sincronización con base de datos activa'
-                    : 'Guardando datos en el dispositivo'}
-                </Text>
-              </View>
-
-              <Text className="mt-3.5 text-center text-sm leading-relaxed text-slate-600">
-                {isOnline
-                  ? 'Estás conectado a internet. Todas las intervenciones, pautas y registros se sincronizan directamente con la base de datos central en la nube.'
-                  : 'No se detecta conexión a internet. Los registros y mantenciones se guardan localmente en el dispositivo y se sincronizarán al recuperar la señal.'}
-              </Text>
-            </View>
-
-            <View className="mt-6 flex-col gap-2.5">
-              <Pressable
-                onPress={() => {
-                  if (isOnline || isSimulatingOffline) {
-                    toggleSimulatedOffline();
-                  } else {
-                    void checkConnectivityNow();
-                  }
-                  setIsStatusModalOpen(false);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={isOnline ? 'Simular modo local' : 'Restablecer conexión'}
-                className={`w-full items-center justify-center rounded-xl py-3 active:opacity-85 ${
-                  isOnline ? 'bg-amber-500' : 'bg-emerald-600'
-                }`}
-                style={{ cursor: 'pointer' }}
-              >
-                <Text className="text-sm font-bold text-white">
-                  {isOnline
-                    ? 'Simular modo local (prueba)'
-                    : isSimulatingOffline
-                      ? 'Restablecer conexión (En línea)'
-                      : 'Verificar conexión ahora'}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => setIsStatusModalOpen(false)}
-                accessibilityRole="button"
-                accessibilityLabel="Entendido, cerrar diálogo"
-                className="w-full items-center justify-center rounded-xl bg-slate-100 py-2.5 active:bg-slate-200"
-                style={{ cursor: 'pointer' }}
-              >
-                <Text className="text-sm font-semibold text-slate-700">Entendido</Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
 
       {/* Bottom Sheet accesible para cambiar de local */}
       <LocalBottomSheet

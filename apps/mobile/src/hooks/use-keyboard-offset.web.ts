@@ -10,12 +10,11 @@ function isEditableElement(el: Element | null): boolean {
 /**
  * Hook para detectar el espacio adicional requerido por el teclado virtual en PWA móvil.
  *
- * - En Android Chrome (`interactive-widget=resizes-content` + `100dvh`), el navegador
- *   ya redimensiona `window.innerHeight` y `#root` automáticamente cuando se abre el
- *   teclado. En ese caso devolvemos `0` para no duplicar el espacio ni provocar saltos
- *   que cierren el teclado.
- * - En iOS Safari (que no reduce `window.innerHeight`), devolvemos la diferencia entre
- *   `window.innerHeight` y `visualViewport.height`.
+ * Con `interactive-widget=resizes-visual` y `100dvh`, el teclado reduce únicamente
+ * `window.visualViewport` sin encoger `#root`. Calculamos la altura cubierta por el
+ * teclado mediante `visualViewport` para que solo los contenedores desplazables
+ * (`KeyboardScrollView`, `LocalBottomSheet`) agreguen espacio inferior y desplacen el
+ * input enfocado sin levantar la interfaz general.
  */
 export function useKeyboardOffset(): number {
   const [keyboardOffset, setKeyboardOffset] = useState(0);
@@ -25,33 +24,26 @@ export function useKeyboardOffset(): number {
       return;
     }
 
-    let maxInnerHeight = window.innerHeight;
     let rafId: number | null = null;
 
     const update = () => {
       const viewport = window.visualViewport;
       if (!viewport) return;
 
-      if (window.innerHeight > maxInnerHeight) {
-        maxInnerHeight = window.innerHeight;
-      }
+      const activeEditable =
+        typeof document !== 'undefined' && isEditableElement(document.activeElement);
 
-      // Si window.innerHeight se redujo significativamente, el navegador (Android Chrome)
-      // ya redimensionó el layout viewport por sí mismo (resizes-content).
-      const layoutShrunkByBrowser = maxInnerHeight - window.innerHeight > 80;
-      if (layoutShrunkByBrowser) {
+      if (!activeEditable) {
         setKeyboardOffset(0);
         return;
       }
 
-      // En iOS Safari, window.innerHeight permanece fijo y solo visualViewport.height se reduce.
-      const unshrunkDiff = Math.max(0, Math.round(window.innerHeight - viewport.height));
-      const isIosKeyboardOpen =
-        unshrunkDiff > 80 &&
-        typeof document !== 'undefined' &&
-        isEditableElement(document.activeElement);
+      const coveredBottom = Math.max(
+        0,
+        Math.round(window.innerHeight - viewport.height - viewport.offsetTop),
+      );
 
-      setKeyboardOffset(isIosKeyboardOpen ? unshrunkDiff : 0);
+      setKeyboardOffset(window.innerHeight - viewport.height > 80 ? coveredBottom : 0);
     };
 
     const scheduleUpdate = () => {
@@ -63,13 +55,16 @@ export function useKeyboardOffset(): number {
     };
 
     window.visualViewport.addEventListener('resize', scheduleUpdate);
+    window.visualViewport.addEventListener('scroll', scheduleUpdate);
     window.addEventListener('resize', scheduleUpdate);
     document.addEventListener('focusin', scheduleUpdate);
     document.addEventListener('focusout', scheduleUpdate);
+    scheduleUpdate();
 
     return () => {
       if (rafId !== null) cancelAnimationFrame(rafId);
       window.visualViewport?.removeEventListener('resize', scheduleUpdate);
+      window.visualViewport?.removeEventListener('scroll', scheduleUpdate);
       window.removeEventListener('resize', scheduleUpdate);
       document.removeEventListener('focusin', scheduleUpdate);
       document.removeEventListener('focusout', scheduleUpdate);
@@ -126,6 +121,7 @@ export function useIsKeyboardVisible(): boolean {
     window.addEventListener('resize', scheduleCheck);
     document.addEventListener('focusin', scheduleCheck);
     document.addEventListener('focusout', scheduleCheck);
+    scheduleCheck();
 
     return () => {
       if (rafId !== null) cancelAnimationFrame(rafId);

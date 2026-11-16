@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
 import { computed, onScopeDispose, ref, watch } from 'vue'
+import Select from 'primevue/select'
 import ExportarHistorialDialog from '../components/mantencion/ExportarHistorialDialog.vue'
 import type { FiltrosHistorial } from '../types/exportacion'
 import MantencionDetalle from '../components/mantencion/MantencionDetalle.vue'
@@ -36,6 +37,47 @@ const maquinasDisponibles = computed(() => {
     ? maquinas.value.filter(maquina => historial.ids.has(maquina.id))
     : []
 })
+
+const opcionesLocales = computed(() => [
+  { id: '', nombre: 'Todos los locales' },
+  ...locales.value,
+])
+
+const opcionesMaquinas = computed(() => {
+  const primeraEtiqueta = !opcionesMaquinaListas.value
+    ? (cargando.value ? 'Cargando máquinas…' : 'Opciones no disponibles')
+    : localId.value && !maquinasDisponibles.value.length
+      ? 'Sin máquinas en este historial'
+      : 'Todas las máquinas'
+  return [
+    { id: '', nombre: primeraEtiqueta, etiqueta: primeraEtiqueta },
+    ...maquinasDisponibles.value.map(m => ({
+      id: m.id,
+      nombre: m.nombre,
+      codigo_interno: m.codigo_interno,
+      etiqueta: `${m.nombre} · ${m.codigo_interno}`,
+    })),
+  ]
+})
+
+const opcionesTecnicos = computed(() => [
+  { id: '', nombre: 'Todos los técnicos' },
+  ...tecnicos.value,
+])
+
+const opcionesTipo = [
+  { label: 'Todos los tipos', value: '' },
+  { label: 'Inspección', value: 'inspeccion' },
+  { label: 'Preventiva', value: 'preventiva' },
+  { label: 'Correctiva', value: 'correctiva' },
+]
+
+const opcionesEstado = [
+  { label: 'Todos los estados', value: '' },
+  { label: 'Operativa', value: 'operativa' },
+  { label: 'Operativa con observaciones', value: 'operativa_con_observaciones' },
+  { label: 'Fuera de servicio', value: 'fuera_de_servicio' },
+]
 
 const pagina = ref(1)
 const total = ref(0)
@@ -125,52 +167,47 @@ onScopeDispose(() => controller?.abort())
       <p v-if="error" role="alert" class="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>
       <template v-if="cargado">
         <div class="mb-4 flex flex-wrap items-end gap-3">
-          <label class="grid gap-1 text-sm font-medium text-slate-700">
+          <label for="filtro-local" class="grid gap-1 text-sm font-medium text-slate-700">
             Local
-            <select v-model="localId" class="rounded-lg border border-slate-300 bg-white p-2">
-              <option value="">Todos los locales</option>
-              <option v-for="local in locales" :key="local.id" :value="local.id">{{ local.nombre }}</option>
-            </select>
+            <Select id="filtro-local" input-id="filtro-local" v-model="localId"
+              :options="opcionesLocales" option-label="nombre" option-value="id"
+              placeholder="Todos los locales"
+              filter filter-placeholder="Buscar local…"
+              empty-message="No hay locales disponibles" empty-filter-message="No se encontraron coincidencias"
+              class="w-full min-w-48 sm:w-56" />
           </label>
-          <label class="grid min-w-0 gap-1 text-sm font-medium text-slate-700">
+          <label for="filtro-maquina" class="grid min-w-0 gap-1 text-sm font-medium text-slate-700">
             Máquina
-            <select v-model="maquinaId" :disabled="!opcionesMaquinaListas"
-              class="w-full max-w-72 rounded-lg border border-slate-300 bg-white p-2 disabled:opacity-60">
-              <option value="">{{ !opcionesMaquinaListas
-                ? (cargando ? 'Cargando máquinas…' : 'Opciones no disponibles')
-                : localId && !maquinasDisponibles.length ? 'Sin máquinas en este historial' : 'Todas las máquinas' }}
-              </option>
-              <option v-for="maquina in maquinasDisponibles" :key="maquina.id" :value="maquina.id">
-                {{ maquina.nombre }} · {{ maquina.codigo_interno }}
-              </option>
-            </select>
+            <Select id="filtro-maquina" input-id="filtro-maquina" v-model="maquinaId"
+              :options="opcionesMaquinas" option-label="etiqueta" option-value="id"
+              placeholder="Todas las máquinas"
+              filter filter-placeholder="Buscar máquina…"
+              empty-message="No hay máquinas disponibles" empty-filter-message="No se encontraron coincidencias"
+              :disabled="!opcionesMaquinaListas"
+              class="w-full max-w-72 disabled:opacity-60" />
           </label>
-          <label class="grid gap-1 text-sm font-medium text-slate-700">
+          <label for="filtro-tecnico" class="grid gap-1 text-sm font-medium text-slate-700">
             Técnico
-            <select v-model="tecnicoId" class="rounded-lg border border-slate-300 bg-white p-2">
-              <option value="">Todos los técnicos</option>
-              <option v-for="tecnico in tecnicos" :key="tecnico.id" :value="tecnico.id">
-                {{ tecnico.nombre }}
-              </option>
-            </select>
+            <Select id="filtro-tecnico" input-id="filtro-tecnico" v-model="tecnicoId"
+              :options="opcionesTecnicos" option-label="nombre" option-value="id"
+              placeholder="Todos los técnicos"
+              filter filter-placeholder="Buscar técnico…"
+              empty-message="No hay técnicos disponibles" empty-filter-message="No se encontraron coincidencias"
+              class="w-full min-w-44 sm:w-52" />
           </label>
-          <label class="grid gap-1 text-sm font-medium text-slate-700">
+          <label for="filtro-tipo" class="grid gap-1 text-sm font-medium text-slate-700">
             Tipo
-            <select v-model="tipo" class="rounded-lg border border-slate-300 bg-white p-2">
-              <option value="">Todos los tipos</option>
-              <option value="inspeccion">Inspección</option>
-              <option value="preventiva">Preventiva</option>
-              <option value="correctiva">Correctiva</option>
-            </select>
+            <Select id="filtro-tipo" input-id="filtro-tipo" v-model="tipo"
+              :options="opcionesTipo" option-label="label" option-value="value"
+              placeholder="Todos los tipos"
+              class="w-full min-w-40 sm:w-44" />
           </label>
-          <label class="grid gap-1 text-sm font-medium text-slate-700">
+          <label for="filtro-estado" class="grid gap-1 text-sm font-medium text-slate-700">
             Estado final del equipo
-            <select v-model="estado" class="rounded-lg border border-slate-300 bg-white p-2">
-              <option value="">Todos los estados</option>
-              <option value="operativa">Operativa</option>
-              <option value="operativa_con_observaciones">Operativa con observaciones</option>
-              <option value="fuera_de_servicio">Fuera de servicio</option>
-            </select>
+            <Select id="filtro-estado" input-id="filtro-estado" v-model="estado"
+              :options="opcionesEstado" option-label="label" option-value="value"
+              placeholder="Todos los estados"
+              class="w-full min-w-44 sm:w-56" />
           </label>
           <button v-if="localId || maquinaId || tipo || estado || tecnicoId" type="button"
             class="px-2 py-2 text-sm font-semibold text-blue-700 hover:underline"

@@ -5,6 +5,7 @@ import CargaSeccion from '../components/layout/CargaSeccion.vue'
 import { useCargaInicial } from '../composables/useCargaInicial.ts'
 import { listarTecnicos, type TecnicosPagina, type TecnicoListado } from '../services/tecnico.service'
 import Dialog from 'primevue/dialog'
+import Select from 'primevue/select'
 
 const busqueda = ref('')
 const mostrarPerfil = ref(false)
@@ -51,6 +52,11 @@ async function alGuardar(
 }
 
 const estado = ref<'' | 'activo' | 'inactivo'>('')
+const opcionesEstado = [
+  { label: 'Todos los estados', value: '' },
+  { label: 'Activos', value: 'activo' },
+  { label: 'Inactivos', value: 'inactivo' },
+]
 const listado = ref<TecnicosPagina>({ filas: [], total: 0, pagina: 1 })
 const cargando = ref(false)
 const error = ref('')
@@ -119,13 +125,12 @@ onScopeDispose(() => { clearTimeout(espera); controller?.abort() })
           <input v-model="busqueda" type="search" maxlength="100"
             class="rounded-lg border border-slate-300 bg-white p-2" />
         </label>
-        <label class="grid gap-1 text-sm font-medium text-slate-700">
+        <label for="filtro-estado-tecnico" class="grid gap-1 text-sm font-medium text-slate-700">
           Estado
-          <select v-model="estado" class="rounded-lg border border-slate-300 bg-white p-2">
-            <option value="">Todos los estados</option>
-            <option value="activo">Activos</option>
-            <option value="inactivo">Inactivos</option>
-          </select>
+          <Select id="filtro-estado-tecnico" input-id="filtro-estado-tecnico" v-model="estado"
+            :options="opcionesEstado" option-label="label" option-value="value"
+            placeholder="Todos los estados"
+            class="w-full min-w-44 sm:w-48" />
         </label>
         <button v-if="busqueda || estado" type="button"
           class="px-2 py-2 text-sm font-semibold text-blue-700 hover:underline"

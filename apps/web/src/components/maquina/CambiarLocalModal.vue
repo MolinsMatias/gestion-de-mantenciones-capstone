@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import Select from 'primevue/select'
 import type { CatalogoOpcion, MaquinaDetalle } from '../../types/maquina'
 import { reasignarMaquina } from '../../services/maquina.service'
 
@@ -68,19 +69,24 @@ async function guardar(): Promise<void> {
             </p>
             <p class="text-sm text-slate-600">Ubicación actual: {{ maquina.localNombre }}</p>
 
-            <label class="block text-sm font-semibold text-slate-900">
+            <label for="local-destino" class="block text-sm font-semibold text-slate-900">
               Local de destino
-              <select
+              <Select
+                id="local-destino"
+                input-id="local-destino"
                 v-model="destinoId"
-                required
+                :options="destinos"
+                option-label="nombre"
+                option-value="id"
+                placeholder="Selecciona un local"
+                filter
+                filter-placeholder="Buscar local…"
+                empty-message="No hay locales disponibles"
+                empty-filter-message="No se encontraron coincidencias"
                 :disabled="guardando || !destinos.length"
-                class="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2"
-              >
-                <option value="" disabled>Selecciona un local</option>
-                <option v-for="local in destinos" :key="local.id" :value="local.id">
-                  {{ local.nombre }}
-                </option>
-              </select>
+                append-to="self"
+                class="mt-1 w-full"
+              />
             </label>
 
             <p v-if="!destinos.length" class="text-sm text-slate-500">No hay otro local disponible.</p>

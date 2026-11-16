@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { CubeIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import Select from 'primevue/select'
 import { crearMaquina, obtenerOpcionesCrearMaquina } from '../../services/crear-maquina.service'
 import type { MaquinaCreada, OpcionesCrearMaquina } from '../../types/crear-maquina'
 
@@ -14,6 +15,10 @@ const errorGuardar = ref('')
 const formulario = reactive({
   nombre: '', local_id: '', categoria_id: '', marca_id: '', modelo: '', activo: true,
 })
+const opcionesMarcas = computed(() => [
+  { id: '', nombre: 'Sin marca' },
+  ...opciones.value.marcas,
+])
 let controller: AbortController | null = null
 let desmontado = false
 let focoAnterior: HTMLElement | null = null
@@ -70,15 +75,15 @@ onBeforeUnmount(() => {
 <template>
   <Teleport to="body">
     <dialog ref="dialogo" aria-labelledby="crear-maquina-titulo" aria-describedby="crear-maquina-descripcion"
-      class="m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-2xl overflow-hidden rounded-3xl border-0 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/60"
+      class="m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-xl overflow-hidden rounded-3xl border-0 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/60"
       @cancel.prevent="cerrar">
       <div class="flex max-h-[90dvh] min-h-0 flex-col">
         <header class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 p-6">
           <div>
             <CubeIcon class="mb-3 size-8 text-blue-600" aria-hidden="true" />
-            <h2 id="crear-maquina-titulo" class="text-2xl font-bold">Agregar máquina</h2>
-            <p id="crear-maquina-descripcion" class="mt-2 text-sm text-slate-500">Asigna el equipo a un local y a su
-              categoría.</p>
+            <h2 id="crear-maquina-titulo" class="text-2xl font-bold">Crear máquina</h2>
+            <p id="crear-maquina-descripcion" class="mt-2 text-sm text-slate-500">Registra un equipo en el catálogo
+              asociándolo a su local.</p>
           </div>
           <button type="button" aria-label="Cerrar modal" :disabled="guardando" @click="cerrar"
             class="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40">
@@ -87,15 +92,11 @@ onBeforeUnmount(() => {
         </header>
 
         <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6">
+          <p v-if="errorCarga" role="alert" class="mb-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+            {{ errorCarga }} <button type="button" @click="cargarOpciones"
+              class="font-semibold underline">Reintentar</button>
+          </p>
           <form id="form-crear-maquina" class="space-y-5" :aria-busy="guardando" @submit.prevent="guardar">
-            <p v-if="cargando" role="status" class="text-sm text-slate-500">Cargando locales, categorías y marcas…</p>
-            <div v-if="errorCarga" role="alert" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">
-              <p>{{ errorCarga }}</p>
-              <button type="button" @click="cargarOpciones" class="mt-2 font-semibold underline">Reintentar</button>
-            </div>
-            <p v-else-if="!cargando && (!opciones.locales.length || !opciones.categorias.length)"
-              class="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Necesitas al menos un local activo y una categoría
-              activa para registrar una máquina.</p>
             <div class="grid gap-5 sm:grid-cols-2">
               <div class="sm:col-span-2">
                 <label for="maquina-nombre" class="block text-sm font-semibold">Nombre de la máquina</label>
@@ -106,29 +107,28 @@ onBeforeUnmount(() => {
 
               <div class="sm:col-span-2">
                 <label for="maquina-local" class="block text-sm font-semibold">Local</label>
-                <select id="maquina-local" v-model="formulario.local_id" required :disabled="guardando || cargando"
-                  class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:opacity-60">
-                  <option disabled value="">Selecciona un local</option>
-                  <option v-for="local in opciones.locales" :key="local.id" :value="local.id">{{ local.nombre }}</option>
-                </select>
+                <Select id="maquina-local" input-id="maquina-local" v-model="formulario.local_id"
+                  :options="opciones.locales" option-label="nombre" option-value="id"
+                  placeholder="Selecciona un local" filter filter-placeholder="Buscar local…"
+                  empty-message="No hay locales disponibles" empty-filter-message="No se encontraron coincidencias"
+                  :disabled="guardando || cargando" append-to="self" class="mt-2 w-full" />
               </div>
               <div>
                 <label for="maquina-categoria" class="block text-sm font-semibold">Categoría</label>
-                <select id="maquina-categoria" v-model="formulario.categoria_id" required :disabled="guardando || cargando"
-                  class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:opacity-60">
-                  <option disabled value="">Selecciona una categoría</option>
-                  <option v-for="categoria in opciones.categorias" :key="categoria.id" :value="categoria.id">{{
-                    categoria.nombre }}</option>
-                </select>
+                <Select id="maquina-categoria" input-id="maquina-categoria" v-model="formulario.categoria_id"
+                  :options="opciones.categorias" option-label="nombre" option-value="id"
+                  placeholder="Selecciona una categoría" filter filter-placeholder="Buscar categoría…"
+                  empty-message="No hay categorías disponibles" empty-filter-message="No se encontraron coincidencias"
+                  :disabled="guardando || cargando" append-to="self" class="mt-2 w-full" />
               </div>
               <div>
                 <label for="maquina-marca" class="block text-sm font-semibold">Marca <span
                     class="font-normal text-slate-500">(opcional)</span></label>
-                <select id="maquina-marca" v-model="formulario.marca_id" :disabled="guardando || cargando"
-                  class="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:opacity-60">
-                  <option value="">Sin marca</option>
-                  <option v-for="marca in opciones.marcas" :key="marca.id" :value="marca.id">{{ marca.nombre }}</option>
-                </select>
+                <Select id="maquina-marca" input-id="maquina-marca" v-model="formulario.marca_id"
+                  :options="opcionesMarcas" option-label="nombre" option-value="id"
+                  placeholder="Sin marca" filter filter-placeholder="Buscar marca…"
+                  empty-message="No hay marcas disponibles" empty-filter-message="No se encontraron coincidencias"
+                  :disabled="guardando || cargando" append-to="self" class="mt-2 w-full" />
               </div>
               <div class="sm:col-span-2">
                 <label for="maquina-modelo" class="block text-sm font-semibold">Modelo <span
@@ -143,19 +143,18 @@ onBeforeUnmount(() => {
             <p class="text-xs leading-relaxed text-slate-500">El estado operativo se registra mediante las mantenciones.
               Marcar activa no la declara operativa.</p>
             <p v-if="errorGuardar" role="alert" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ errorGuardar }}</p>
-            <p v-if="guardando" role="status" class="text-sm text-slate-500">Guardando la máquina. Espera antes de cerrar.
-            </p>
+            <p v-if="guardando" role="status" class="text-sm text-slate-500">Guardando la máquina. Espera antes de cerrar.</p>
           </form>
         </div>
 
         <footer class="shrink-0 border-t border-slate-100 p-6">
           <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button type="button" :disabled="guardando" @click="cerrar"
-              class="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50">Cancelar</button>
-            <button type="submit" form="form-crear-maquina"
-              :disabled="guardando || cargando || !!errorCarga || !opciones.locales.length || !opciones.categorias.length"
-              class="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50">{{
-                guardando ? 'Guardando…' : 'Agregar máquina' }}</button>
+              class="rounded-xl border border-slate-300 px-6 py-3 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40">Cancelar</button>
+            <button type="submit" form="form-crear-maquina" :disabled="guardando || cargando"
+              class="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white shadow-lg shadow-blue-600/30 hover:bg-blue-700 disabled:opacity-40">
+              {{ guardando ? 'Guardando…' : 'Guardar máquina' }}
+            </button>
           </div>
         </footer>
       </div>

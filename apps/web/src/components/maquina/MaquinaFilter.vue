@@ -1,13 +1,31 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { MagnifyingGlassIcon } from '@heroicons/vue/24/outline'
+import Select from 'primevue/select'
 import type { CatalogoOpcion } from '../../types/maquina'
 
-defineProps<{ locales: CatalogoOpcion[]; categorias: CatalogoOpcion[]; deshabilitado: boolean }>()
+const props = defineProps<{ locales: CatalogoOpcion[]; categorias: CatalogoOpcion[]; deshabilitado: boolean }>()
 const busqueda = defineModel<string>('busqueda', { required: true })
 const localId = defineModel<string>('localId', { required: true })
 const categoriaId = defineModel<string>('categoriaId', { required: true })
 const estado = defineModel<'todos' | 'activas' | 'inactivas'>('estado', { required: true })
 defineEmits<{ limpiar: [] }>()
+
+const opcionesLocales = computed(() => [
+  { id: '', nombre: 'Todos los locales' },
+  ...props.locales,
+])
+
+const opcionesCategorias = computed(() => [
+  { id: '', nombre: 'Todas las categorías' },
+  ...props.categorias,
+])
+
+const opcionesEstado = [
+  { label: 'Todos los estados', value: 'todos' as const },
+  { label: 'Activas', value: 'activas' as const },
+  { label: 'Inactivas', value: 'inactivas' as const },
+]
 </script>
 
 <template>
@@ -22,30 +40,25 @@ defineEmits<{ limpiar: [] }>()
       </div>
       <div>
         <label for="maquinas-local" class="sr-only">Filtrar por local</label>
-        <select id="maquinas-local" v-model="localId" :disabled="deshabilitado"
-          class="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:opacity-50">
-          <option value="">Todos los locales</option>
-          <option v-for="local in locales" :key="local.id" :value="local.id">{{ local.nombre }}</option>
-        </select>
+        <Select id="maquinas-local" input-id="maquinas-local" v-model="localId" :options="opcionesLocales"
+          option-label="nombre" option-value="id" placeholder="Todos los locales" filter filter-placeholder="Buscar local…"
+          empty-message="No hay locales disponibles" empty-filter-message="No se encontraron coincidencias"
+          :disabled="deshabilitado" class="w-full" />
       </div>
       <div>
         <label for="maquinas-categoria" class="sr-only">Filtrar por categoría</label>
-        <select id="maquinas-categoria" v-model="categoriaId" :disabled="deshabilitado"
-          class="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:opacity-50">
-          <option value="">Todas las categorías</option>
-          <option v-for="categoria in categorias" :key="categoria.id" :value="categoria.id">{{ categoria.nombre }}</option>
-        </select>
+        <Select id="maquinas-categoria" input-id="maquinas-categoria" v-model="categoriaId"
+          :options="opcionesCategorias" option-label="nombre" option-value="id" placeholder="Todas las categorías" filter
+          filter-placeholder="Buscar categoría…" empty-message="No hay categorías disponibles"
+          empty-filter-message="No se encontraron coincidencias" :disabled="deshabilitado" class="w-full" />
       </div>
       <div>
         <label for="maquinas-estado" class="sr-only">Filtrar por estado de registro</label>
-        <select id="maquinas-estado" v-model="estado" :disabled="deshabilitado"
-          class="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:opacity-50">
-          <option value="todos">Todos los estados</option>
-          <option value="activas">Activas</option>
-          <option value="inactivas">Inactivas</option>
-        </select>
+        <Select id="maquinas-estado" input-id="maquinas-estado" v-model="estado" :options="opcionesEstado"
+          option-label="label" option-value="value" placeholder="Todos los estados" :disabled="deshabilitado" class="w-full" />
       </div>
     </div>
-    <button type="button" @click="$emit('limpiar')" class="text-sm font-semibold text-blue-600 hover:underline">Limpiar filtros</button>
+    <button type="button" @click="$emit('limpiar')" class="text-sm font-semibold text-blue-600 hover:underline">Limpiar
+      filtros</button>
   </section>
 </template>

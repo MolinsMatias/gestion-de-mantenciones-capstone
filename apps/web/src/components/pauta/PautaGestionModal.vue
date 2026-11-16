@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import Dialog from 'primevue/dialog'
+import Select from 'primevue/select'
 import {
   gestionarPauta, gestionarVersionPauta, obtenerSeccionesPauta,
   type AccionPauta, type AccionVersionPauta, type CategoriaPauta, type ItemPautaBorrador,
@@ -117,13 +118,12 @@ async function guardar(): Promise<void> {
         <label class="block text-sm font-medium">Nombre de la pauta *
           <input v-model="borrador.nombre" required :class="campo" />
         </label>
-        <label class="block text-sm font-medium">Categoría *
-          <select v-model="borrador.categoria_id" :disabled="pauta?.borrador_version" required :class="campo">
-            <option value="" disabled>Selecciona una categoría</option>
-            <option v-for="categoria in categoriasEditables" :key="categoria.id" :value="categoria.id">
-              {{ categoria.nombre }}
-            </option>
-          </select>
+        <label for="pauta-categoria" class="block text-sm font-medium">Categoría *
+          <Select id="pauta-categoria" input-id="pauta-categoria" v-model="borrador.categoria_id"
+            :options="categoriasEditables" option-label="nombre" option-value="id"
+            placeholder="Selecciona una categoría" filter filter-placeholder="Buscar categoría…"
+            empty-message="No hay categorías disponibles" empty-filter-message="No se encontraron coincidencias"
+            :disabled="Boolean(pauta?.borrador_version)" class="mt-1 w-full" />
         </label>
         <label class="block text-sm font-medium">Descripción
           <textarea v-model="borrador.descripcion" rows="2" :class="campo" />

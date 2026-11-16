@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { ArrowDownTrayIcon, ArrowLeftIcon, DocumentTextIcon, EyeIcon } from '@heroicons/vue/24/outline'
+import Select from 'primevue/select'
 import InformeDatosForm from '../components/informe/InformeDatosForm.vue'
 import { useGenerarInforme } from '../composables/useGenerarInforme'
 import { obtenerLocalesInforme, type LocalInforme } from '../services/informe.service'
@@ -55,12 +56,14 @@ onBeforeUnmount(() => peticionLocales?.abort())
     <form class="rounded-2xl border border-slate-200 bg-white p-5" @submit.prevent="consultar">
       <h2 class="mb-4 text-lg font-bold">1. Local y período</h2>
       <div class="grid items-end gap-4 md:grid-cols-[minmax(0,1fr)_12rem_auto]">
-        <label class="grid gap-2 text-sm font-semibold text-slate-700">Local <span class="sr-only">obligatorio</span>
-          <select v-model="localId" required :disabled="cargandoLocales || ocupado || !!errorLocales"
-            class="min-w-0 rounded-xl border border-slate-300 bg-white p-3 text-slate-900 disabled:opacity-60">
-            <option value="">{{ cargandoLocales ? 'Cargando locales…' : 'Selecciona un local' }}</option>
-            <option v-for="local in locales" :key="local.id" :value="local.id">{{ local.nombre }}</option>
-          </select>
+        <label for="informe-local" class="grid gap-2 text-sm font-semibold text-slate-700">Local <span class="sr-only">obligatorio</span>
+          <Select id="informe-local" input-id="informe-local" v-model="localId"
+            :options="locales" option-label="nombre" option-value="id"
+            :placeholder="cargandoLocales ? 'Cargando locales…' : 'Selecciona un local'"
+            :loading="cargandoLocales" filter filter-placeholder="Buscar local…"
+            empty-message="No hay locales disponibles" empty-filter-message="No se encontraron coincidencias"
+            :disabled="cargandoLocales || ocupado || !!errorLocales"
+            class="min-w-0 w-full" />
         </label>
         <label class="grid gap-2 text-sm font-semibold text-slate-700">Mes y año
           <input v-model="mes" type="month" required :disabled="ocupado" class="rounded-xl border border-slate-300 bg-white p-3 text-slate-900 disabled:opacity-60" />

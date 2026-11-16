@@ -5,6 +5,7 @@ import { useCargaInicial } from '../composables/useCargaInicial'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Dialog from 'primevue/dialog'
+import Select from 'primevue/select'
 import PautaDetalle from '../components/pauta/PautaDetalle.vue'
 import PautaGestionModal from '../components/pauta/PautaGestionModal.vue'
 import { obtenerCatalogoPautas, type Pauta, type CategoriaPauta, type AccionPauta, type AccionVersionPauta } from '../services/pauta.service'
@@ -21,6 +22,19 @@ const seleccionadaId = ref<string | null>(null)
 const gestion = ref<{ accion: AccionPauta | AccionVersionPauta; pauta?: Pauta } | null>(null)
 const mensaje = ref('')
 let solicitud: AbortController | null = null
+
+const opcionesCategorias = computed(() => [
+  { id: '', nombre: 'Todas' },
+  ...categorias.value,
+])
+
+const opcionesEstado = [
+  { label: 'Sin archivar', value: '' },
+  { label: 'Activas', value: 'activa' },
+  { label: 'Inactivas', value: 'inactiva' },
+  { label: 'Borradores', value: 'borrador' },
+  { label: 'Archivadas', value: 'archivada' },
+]
 
 function abrirGestion(accion: AccionPauta | AccionVersionPauta, pauta?: Pauta): void {
   if (cargando.value || gestion.value || (accion !== 'crear' && !pauta)) return
@@ -125,21 +139,19 @@ onUnmounted(() => solicitud?.abort())
       <label class="text-sm">Buscar por nombre
         <input v-model="busqueda" type="search" class="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2" />
       </label>
-      <label class="text-sm">Categoría
-        <select v-model="categoriaId" class="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2">
-          <option value="">Todas</option>
-          <option v-for="categoria in categorias" :key="categoria.id" :value="categoria.id">{{ categoria.nombre }}
-          </option>
-        </select>
+      <label for="filtro-categoria-pauta" class="text-sm">Categoría
+        <Select id="filtro-categoria-pauta" input-id="filtro-categoria-pauta" v-model="categoriaId"
+          :options="opcionesCategorias" option-label="nombre" option-value="id"
+          placeholder="Todas las categorías"
+          filter filter-placeholder="Buscar categoría…"
+          empty-message="No hay categorías disponibles" empty-filter-message="No se encontraron coincidencias"
+          class="mt-1 w-full" />
       </label>
-      <label class="text-sm">Estado
-        <select v-model="estado" class="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2">
-          <option value="">Sin archivar</option>
-          <option value="activa">Activas</option>
-          <option value="inactiva">Inactivas</option>
-          <option value="borrador">Borradores</option>
-          <option value="archivada">Archivadas</option>
-        </select>
+      <label for="filtro-estado-pauta" class="text-sm">Estado
+        <Select id="filtro-estado-pauta" input-id="filtro-estado-pauta" v-model="estado"
+          :options="opcionesEstado" option-label="label" option-value="value"
+          placeholder="Sin archivar"
+          class="mt-1 w-full" />
       </label>
     </div>
 

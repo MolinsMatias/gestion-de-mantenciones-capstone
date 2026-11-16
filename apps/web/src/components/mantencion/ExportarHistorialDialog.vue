@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref } from 'vue'
 import Dialog from 'primevue/dialog'
+import Select from 'primevue/select'
 import { obtenerHistorialExportacion } from '../../services/exportacion.service'
 import type { FiltrosHistorial } from '../../types/exportacion'
 const props = defineProps<{ filtros: FiltrosHistorial }>()
 const emit = defineEmits<{ cerrar: [] }>()
 const formato = ref<'pdf' | 'xlsx'>('pdf')
+const opcionesFormato = [
+  { label: 'PDF', value: 'pdf' as const },
+  { label: 'Excel (.xlsx)', value: 'xlsx' as const },
+]
 const ocupado = ref(false)
 const mensaje = ref('')
 const error = ref('')
@@ -41,12 +46,9 @@ async function exportar() {
     <div class="space-y-4 text-slate-800" :aria-busy="ocupado">
       <p class="text-sm text-slate-600">Se descargarán todos los registros de los filtros aplicados en Mantenciones, no
         solo la página visible.</p>
-      <label class="grid gap-2 text-sm font-semibold">Formato
-        <select v-model="formato" :disabled="ocupado"
-          class="rounded-xl border border-slate-300 bg-white p-3 text-slate-900">
-          <option value="pdf">PDF</option>
-          <option value="xlsx">Excel (.xlsx)</option>
-        </select>
+      <label for="formato-exportacion" class="grid gap-2 text-sm font-semibold">Formato
+        <Select id="formato-exportacion" input-id="formato-exportacion" v-model="formato" :options="opcionesFormato"
+          option-label="label" option-value="value" :disabled="ocupado" class="w-full" />
       </label>
       <p v-if="error" role="alert" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>
       <p v-if="mensaje" role="status" class="rounded-xl bg-blue-50 p-3 text-sm text-blue-800">{{ mensaje }}</p>

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { MagnifyingGlassIcon, XMarkIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/vue/24/outline'
+import Select from 'primevue/select'
 import type { EstadoFiltroLocal } from '../../composables/useFiltroLocal'
+
 const busqueda = defineModel<string>('busqueda', { required: true })
 const estado = defineModel<EstadoFiltroLocal>('estado', { required: true })
 defineProps<{
@@ -13,6 +15,13 @@ defineProps<{
   hayFiltros: boolean
 }>()
 defineEmits<{ limpiar: []; anterior: []; siguiente: [] }>()
+
+const opcionesEstado = [
+  { label: 'Todos', value: 'todos' as const },
+  { label: 'Activos', value: 'activos' as const },
+  { label: 'Inactivos', value: 'inactivos' as const },
+  { label: 'Sin definir', value: 'sin-definir' as const },
+]
 </script>
 
 <template>
@@ -31,13 +40,8 @@ defineEmits<{ limpiar: []; anterior: []; siguiente: [] }>()
       </div>
       <div>
         <label for="estado-locales" class="mb-2 block text-sm font-semibold text-slate-700">Estado del local</label>
-        <select id="estado-locales" v-model="estado" aria-controls="lista-locales"
-          class="w-full rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100">
-          <option value="todos">Todos</option>
-          <option value="activos">Activos</option>
-          <option value="inactivos">Inactivos</option>
-          <option value="sin-definir">Sin definir</option>
-        </select>
+        <Select id="estado-locales" input-id="estado-locales" v-model="estado" :options="opcionesEstado"
+          option-label="label" option-value="value" placeholder="Todos" aria-controls="lista-locales" class="w-full" />
       </div>
       <button type="button" :disabled="!hayFiltros" @click="$emit('limpiar')"
         class="flex items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-default disabled:opacity-40">

@@ -3,6 +3,7 @@ import { autoTable } from 'jspdf-autotable'
 import ExcelJS from 'exceljs'
 import { fuenteInforme } from './fuente-informe'
 import type { FiltrosHistorial, HistorialExportacion, OpcionesInforme, RegistroInforme } from '../types/exportacion'
+import { crearPdfCorporativo } from './pdf/informe-corporativo'
 
 export type ModoInforme = 'historial' | 'informe'
 const fecha = new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/Santiago' })
@@ -20,91 +21,150 @@ function validar(datos: HistorialExportacion, modo: ModoInforme) {
 const encabezados = ['ID mantención', 'Local', 'Máquina / código', 'Técnico', 'Tipo', 'Estado final', 'Finalizada (Chile)', 'Recibida (Chile)']
 const filaResumen = (r: RegistroInforme) => [r.id, texto(r.local), `${texto(r.maquina)} / ${texto(r.codigo)}`, texto(r.tecnico), texto(r.tipo), texto(r.estado), fechaInforme(r.finalizada_at), fechaInforme(r.recibida_at)]
 
-export function crearPdf(datos: HistorialExportacion, filtros: FiltrosHistorial, modo: ModoInforme, opciones: OpcionesInforme): ArrayBuffer {
+export function crearPdf(
+  datos: HistorialExportacion,
+  filtros: FiltrosHistorial,
+  modo: ModoInforme,
+  opciones: OpcionesInforme,
+): ArrayBuffer {
   validar(datos, modo)
-  const doc = new jsPDF({ orientation: modo === 'historial' ? 'landscape' : 'portrait' })
+
+  // Informe con logo y diseño corporativo de Bowling Service.
+  if (modo === 'informe') {
+    return crearPdfCorporativo(datos, filtros, opciones)
+  }
+
+  // Exportación del historial filtrado.
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a4',
+  })
+
   doc.addFileToVFS('DejaVuSans.ttf', fuenteInforme)
   doc.addFont('DejaVuSans.ttf', 'DejaVu', 'normal')
-  doc.setFont('DejaVu')
-  let y = 16
+  doc.setFont('DejaVu', 'normal')
+
   const ancho = doc.internal.pageSize.getWidth()
-  function parrafo(t: string, tam = 9) {
-    doc.setFontSize(tam)
-    const lineas: string[] = doc.splitTextToSize(t, ancho - 28)
+  const alto = doc.internal.pageSize.getHeight()
+
+  let y = 16
+
+  function parrafo(contenido: string, tamano = 9): void {
+    doc.setFontSize(tamano)
+
+    const lineas = doc.splitTextToSize(
+      contenido,
+      ancho - 28,
+    ) as string[]
+
     for (const linea of lineas) {
-      if (y > doc.internal.pageSize.getHeight() - 22) { doc.addPage(); y = 16 }
-      doc.text(linea, 14, y); y += tam * 0.46 + 1
+      if (y > alto - 22) {
+        doc.addPage()
+        y = 16
+      }
+
+      doc.text(linea, 14, y)
+      y += tamano * 0.46 + 1
     }
+
     y += 3
   }
-  function titulo(t: string) { if (y > doc.internal.pageSize.getHeight() - 40) { doc.addPage(); y = 16 }; parrafo(t, 12) }
-  function tabla(head: string[], body: string[][], anchoPrimera?: number) {
-    autoTable(doc, { startY: y, head: [head], body: body.length ? body : [head.map((_, i) => i ? '' : 'Sin registros')],
-      styles: { font: 'DejaVu', fontStyle: 'normal', fontSize: 7, cellPadding: 2, overflow: 'linebreak' },
-      columnStyles: anchoPrimera ? { 0: { cellWidth: anchoPrimera } } : {},
-      headStyles: { fillColor: [30, 64, 110], fontStyle: 'normal' },
-      margin: { top: 14, bottom: 18, left: 14, right: 14 }, rowPageBreak: 'avoid' })
-    y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8
-  }
-  empresa.forEach((linea, i) => parrafo(linea, i === 0 ? 13 : 9))
-  titulo(modo === 'historial' ? 'HISTORIAL DE MANTENCIONES' : `INFORME DE MANTENCIÓN${opciones.orden.trim() ? ` · ORDEN ${opciones.orden.trim()}` : ' · SIN NÚMERO DE ORDEN'}`)
-  parrafo(`Generado: ${fechaInforme(datos.generado_at)} · ${datos.registros.length} registros · Horario de Chile`)
-  parrafo(`Filtros aplicados (identificadores): ${filtrosTexto(filtros)}`, 8)
-  parrafo('Se incluyen registros enviados y finalizados. La fecha de finalización no reemplaza una recepción no registrada.', 8)
-  if (modo === 'historial') tabla(encabezados, datos.registros.map(filaResumen))
-  else {
-    const r = datos.registros[0]!
-    titulo(texto(r.local))
-    parrafo(`${texto(r.direccion)} · ${texto(r.comuna)}\nEncargado: ${texto(opciones.encargado)}`)
-    parrafo(`Mes / año: ${filtros.mes || 'Todo el período filtrado'}`)
-    parrafo(`Período de registros seleccionados: ${fechaInforme(r.finalizada_at)} a ${fechaInforme(datos.registros.at(-1)!.finalizada_at)}`)
-    parrafo('Se presenta la actividad de mantenimiento persistida para el recinto y los filtros indicados.')
-    titulo('PAUTAS Y ACTIVIDADES')
-    const pautas = new Map<string, RegistroInforme[]>()
-    for (const reg of datos.registros) {
-      const clave = reg.pauta_id ?? 'sin-pauta'
-      pautas.set(clave, [...(pautas.get(clave) ?? []), reg])
+
+  function titulo(contenido: string): void {
+    if (y > alto - 40) {
+      doc.addPage()
+      y = 16
     }
-    for (const registros of pautas.values()) {
-      const primero = registros[0]!
-      titulo(`${texto(primero.pauta)} · Versión ${texto(primero.version)}`)
-      parrafo('La matriz muestra los controles con respuesta persistida. Las columnas corresponden a registros por máquina, no a visitas físicas consolidadas. Se conservan los resultados originales; no se convierten a I/C/R.', 8)
-      const items = new Map<string, { seccion: string; item: string }>()
-      for (const reg of registros) for (const res of reg.respuestas) items.set(res.item_id ?? res.id, { seccion: texto(res.seccion), item: texto(res.item) })
-      for (let inicio = 0; inicio < registros.length; inicio += 3) {
-        const bloque = registros.slice(inicio, inicio + 3)
-        tabla(['Sección / control', ...bloque.map(reg => `${texto(reg.codigo)}\n${fechaInforme(reg.finalizada_at)}\nRegistro ${datos.registros.indexOf(reg) + 1}`)],
-          [...items].map(([id, item]) => [`${item.seccion}\n${item.item}`, ...bloque.map(reg => reg.respuestas.filter(res => (res.item_id ?? res.id) === id).map(res => texto(res.resultado)).join(' / ') || 'Sin respuesta')]), 76)
+
+    parrafo(contenido, 12)
+  }
+
+  function tabla(
+    cabeceras: string[],
+    filas: string[][],
+  ): void {
+    autoTable(doc, {
+      startY: y,
+      head: [cabeceras],
+      body: filas,
+      styles: {
+        font: 'DejaVu',
+        fontStyle: 'normal',
+        fontSize: 7,
+        cellPadding: 2,
+        overflow: 'linebreak',
+      },
+      headStyles: {
+        fillColor: [30, 64, 110],
+        fontStyle: 'normal',
+      },
+      margin: {
+        top: 14,
+        bottom: 18,
+        left: 14,
+        right: 14,
+      },
+      showHead: 'everyPage',
+      rowPageBreak: 'avoid',
+    })
+
+    const ultimaTabla = (
+      doc as jsPDF & {
+        lastAutoTable?: {
+          finalY: number
+        }
       }
+    ).lastAutoTable
+
+    if (!ultimaTabla) {
+      throw new Error('No se pudo generar la tabla del historial.')
     }
-    titulo('REGISTRO DE VISITAS / ACTIVIDAD')
-    tabla(['Registro / ID mantención', 'Máquina', 'Técnico', 'Finalizada / recibida (Chile)'], datos.registros.map((reg, i) => [`${i + 1} / ${reg.id}`, `${texto(reg.maquina)}\n${texto(reg.codigo)}`, texto(reg.tecnico), `${fechaInforme(reg.finalizada_at)}\n${fechaInforme(reg.recibida_at)}`]))
-    titulo('RECOMENDACIONES')
-    parrafo(texto(opciones.recomendaciones))
-    for (const reg of datos.registros.filter(reg => reg.pendientes)) parrafo(`${texto(reg.codigo)} · ${reg.id}: ${reg.pendientes}`)
-    titulo('CONCLUSIONES')
-    parrafo(texto(opciones.conclusiones))
-    titulo('REPUESTOS UTILIZADOS O POR REEMPLAZAR (NOVEDADES)')
-    tabla(['Registro / fecha', 'Máquina', 'Requiere repuestos', 'Detalle registrado'], datos.registros.filter(reg => reg.requiere_repuestos || reg.detalle_repuestos).map(reg => [reg.id + '\n' + fechaInforme(reg.finalizada_at), texto(reg.codigo), reg.requiere_repuestos === null ? 'Sin registro' : reg.requiere_repuestos ? 'Sí' : 'No', texto(reg.detalle_repuestos)]))
-    parrafo('Número de parte y cantidad: no se capturan de forma estructurada. Se conserva íntegro el detalle libre registrado.', 8)
-    titulo('CONTADORES Y PRUEBAS POR MÁQUINA')
-    parrafo('Sin datos registrados en el modelo compartido para contador inicial, contador final, pruebas y uso de la semana anterior. No se calculan ni se incorporan los valores del ejemplo.')
-    titulo('DETALLE DE TRABAJOS Y OBSERVACIONES')
-    for (const reg of datos.registros) {
-      titulo(`${texto(reg.codigo)} · ${reg.id}`)
-      tabla(['Campo', 'Registro'], [['Falla reportada', texto(reg.falla_reportada)], ['Trabajos realizados', texto(reg.trabajos_realizados)], ['Estado final', texto(reg.estado)], ['Observaciones', texto(reg.observaciones)]])
-      tabla(['Control', 'Resultado', 'Observaciones'], reg.respuestas.map(res => [texto(res.item), texto(res.resultado), texto(res.observaciones)]))
-    }
-    titulo('RESPONSABLE DEL INFORME')
-    parrafo(texto(opciones.responsable))
-    parrafo('Nombre declarado para el documento. No constituye una firma electrónica ni reemplaza la autoría técnica registrada.', 8)
-    parrafo(pendientesModelo, 8)
+
+    y = ultimaTabla.finalY + 8
   }
-  const paginas = doc.getNumberOfPages()
-  for (let p = 1; p <= paginas; p++) {
-    doc.setPage(p); doc.setFontSize(8)
-    doc.text(`Bowling Service · ${p} / ${paginas}`, 14, doc.internal.pageSize.getHeight() - 8)
+
+  empresa.forEach((linea, indice) => {
+    parrafo(linea, indice === 0 ? 13 : 9)
+  })
+
+  titulo('HISTORIAL DE MANTENCIONES')
+
+  parrafo(
+    `Generado: ${fechaInforme(datos.generado_at)} · ` +
+    `${datos.registros.length} registros · Horario de Chile`,
+  )
+
+  parrafo(
+    `Filtros aplicados (identificadores): ${filtrosTexto(filtros)}`,
+    8,
+  )
+
+  parrafo(
+    'Se incluyen registros enviados y finalizados. ' +
+    'La fecha de finalización no reemplaza una recepción no registrada.',
+    8,
+  )
+
+  tabla(
+    encabezados,
+    datos.registros.map(filaResumen),
+  )
+
+  const totalPaginas = doc.getNumberOfPages()
+
+  for (let pagina = 1; pagina <= totalPaginas; pagina++) {
+    doc.setPage(pagina)
+    doc.setFont('DejaVu', 'normal')
+    doc.setFontSize(8)
+
+    doc.text(
+      `Bowling Service · ${pagina} / ${totalPaginas}`,
+      14,
+      alto - 8,
+    )
   }
+
   return doc.output('arraybuffer')
 }
 

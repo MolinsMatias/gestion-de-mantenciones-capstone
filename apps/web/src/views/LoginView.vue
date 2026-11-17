@@ -18,7 +18,6 @@ const router = useRouter()
 const route = useRoute()
 
 const {
-  autenticado,
   cargando,
   inicializando,
   error,
@@ -116,11 +115,6 @@ function formatearRun(event: Event): void {
           Comprobando sesión…
         </p>
 
-        <!-- Confirmación temporal; luego mostraremos el monitor. -->
-        <p v-if="inicializando" role="status" class="text-center text-slate-500">
-          Comprobando sesión…
-        </p>
-
         <template v-else>
           <div class="mb-6 flex size-12 items-center justify-center rounded-2xl bg-blue-50">
             <LockClosedIcon class="size-6 text-blue-600" aria-hidden="true" />
@@ -181,6 +175,12 @@ function formatearRun(event: Event): void {
               <ArrowRightIcon v-if="!cargando" class="size-5" aria-hidden="true" />
             </button>
           </form>
+
+          <RouterLink :to="{ name: 'recuperar-contrasena' }" :aria-disabled="cargando" :tabindex="cargando ? -1 : 0"
+            :class="{ 'pointer-events-none opacity-50': cargando }"
+            class="mt-5 block text-center text-sm font-semibold text-blue-600 hover:underline">
+            ¿Olvidaste tu contraseña?
+          </RouterLink>
 
           <p class="mt-6 text-center text-xs text-slate-500">
             ¿No puedes ingresar? Contacta al administrador.

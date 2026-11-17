@@ -10,6 +10,16 @@ const router = createRouter({
       component: () => import('../views/LoginView.vue'),
     },
     {
+      path: '/recuperar-contrasena',
+      name: 'recuperar-contrasena',
+      component: () => import('../views/RecuperarContrasenaView.vue'),
+    },
+    {
+      path: '/restablecer-contrasena',
+      name: 'restablecer-contrasena',
+      component: () => import('../views/RestablecerContrasenaView.vue'),
+    },
+    {
       path: '/',
       component: () => import('../layouts/AppLayout.vue'),
       redirect: '/monitor',

@@ -85,7 +85,7 @@ export function createAltaTecnicoHandler(deps: AltaDependencies, origins: string
       const paterno = texto('apellido_paterno')
       const materno = texto('apellido_materno')
       if (!run || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-        || password.length < 12 || new TextEncoder().encode(password).length > 72
+        || password.length < 6 || new TextEncoder().encode(password).length > 72
         || !nombre || !paterno || [nombre, segundoNombre, paterno, materno].some(s => s.length > 80)) {
         return responder(400, { error: 'Revisa RUN, correo, contraseña, nombre y apellido paterno.' })
       }

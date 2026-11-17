@@ -54,8 +54,8 @@ async function guardar() {
       campoRun.value?.focus()
       return
     }
-    if (password.value.length < 12 || new TextEncoder().encode(password.value).length > 72) {
-      error.value = 'La contraseña debe tener al menos 12 caracteres y no superar 72 bytes.'
+    if (password.value.length < 6 || new TextEncoder().encode(password.value).length > 72) {
+      error.value = 'La contraseña debe tener al menos 6 caracteres y no superar 72 bytes.'
       return
     }
   }
@@ -123,10 +123,10 @@ function alEscribirRun(evento: Event): void {
               class="rounded-lg border border-slate-300 p-2" />
           </label>
           <div class="grid gap-1 sm:col-span-2">
-            <label for="tecnico-password">Contraseña inicial (mínimo 12 caracteres) *</label>
+            <label for="tecnico-password">Contraseña inicial (mínimo 6 caracteres) *</label>
             <div class="relative">
               <input id="tecnico-password" v-model="password" :type="mostrarPassword ? 'text' : 'password'" required
-                minlength="12" maxlength="72" autocomplete="new-password"
+                minlength="6" maxlength="72" autocomplete="new-password"
                 class="w-full rounded-lg border border-slate-300 p-2 pr-10" />
               <button type="button" :aria-label="mostrarPassword
                 ? 'Ocultar contraseña'

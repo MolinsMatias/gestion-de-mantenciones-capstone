@@ -42,10 +42,22 @@ export async function crearTecnico(datos: DatosTecnico & { run: string; email: s
   if (error || typeof data?.id !== 'string') throw new Error('No se pudo confirmar la creación.')
 }
 
-export async function gestionarPerfilTecnico(id: string, accion: 'editar' | 'deshabilitar', datos?: DatosTecnico) {
+export async function gestionarPerfilTecnico(
+  id: string,
+  accion: 'editar' | 'deshabilitar' | 'habilitar',
+  datos?: DatosTecnico,
+): Promise<void> {
   const { data, error } = await supabase.rpc('gestionar_perfil_tecnico', {
-    p_id: id, p_accion: accion, p_datos: datos ?? {},
+    p_id: id,
+    p_accion: accion,
+    p_datos: datos ?? {},
   })
-  if (error?.code === 'P0001' || error?.code === '42501') throw new Error(error.message)
-  if (error || data !== id) throw new Error('No se pudo confirmar el cambio del técnico.')
+
+  if (error?.code === 'P0001' || error?.code === '42501') {
+    throw new Error(error.message)
+  }
+
+  if (error || data !== id) {
+    throw new Error('No se pudo confirmar el cambio del técnico.')
+  }
 }

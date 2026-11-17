@@ -23,7 +23,7 @@ const confirmacion = ref({
 })
 
 async function alGuardar(
-  accion: 'crear' | 'editar' | 'deshabilitar',
+  accion: 'crear' | 'editar' | 'deshabilitar' | 'habilitar',
 ): Promise<void> {
   // Cierra el formulario de gestión.
   mostrarPerfil.value = false
@@ -42,6 +42,10 @@ async function alGuardar(
     deshabilitar: {
       titulo: 'Cuenta deshabilitada',
       mensaje: 'La cuenta quedó deshabilitada. Su historial se conserva.',
+    },
+    habilitar: {
+      titulo: 'Cuenta habilitada',
+      mensaje: 'La cuenta quedó habilitada.',
     },
   }[accion]
 
@@ -127,10 +131,8 @@ onScopeDispose(() => { clearTimeout(espera); controller?.abort() })
         </label>
         <label for="filtro-estado-tecnico" class="grid gap-1 text-sm font-medium text-slate-700">
           Estado
-          <Select id="filtro-estado-tecnico" input-id="filtro-estado-tecnico" v-model="estado"
-            :options="opcionesEstado" option-label="label" option-value="value"
-            placeholder="Todos los estados"
-            class="w-full min-w-44 sm:w-48" />
+          <Select id="filtro-estado-tecnico" input-id="filtro-estado-tecnico" v-model="estado" :options="opcionesEstado"
+            option-label="label" option-value="value" placeholder="Todos los estados" class="w-full min-w-44 sm:w-48" />
         </label>
         <button v-if="busqueda || estado" type="button"
           class="px-2 py-2 text-sm font-semibold text-blue-700 hover:underline"

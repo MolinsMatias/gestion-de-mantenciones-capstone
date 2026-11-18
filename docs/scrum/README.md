@@ -1,6 +1,6 @@
 # Seguimiento Scrum — Bowling Services
 
-El equipo gestiona las tareas del proyecto en Trello. Esta carpeta conserva capturas del tablero para mostrar el avance en cada sprint y evaluación de Capstone.
+El equipo gestiona las tareas del proyecto en Trello. Esta carpeta conserva un registro visual retrospectivo del avance del proyecto en cinco cortes de trabajo.
 
 ## Tablero de trabajo
 
@@ -21,17 +21,14 @@ En el tablero se pueden consultar las descripciones de las tarjetas, responsable
 
 ## Capturas de avance
 
-Las capturas se guardan en [`capturas/`](capturas/), al cierre de cada sprint y antes de cada evaluación. Trello muestra el estado actual; las capturas conservan el estado del tablero en la fecha registrada.
-
-- Usar nombres con fecha: `AAAA-MM-DD-sprint-01-cierre.png`. Para una evaluación, usar `AAAA-MM-DD-evaluacion-fase-1.png`.
-- Mantener legibles los nombres de las listas y las tarjetas. Si hacen falta varias imágenes, agregar los sufijos `-01`, `-02`, etc.
-- Agregar cada captura al registro siguiente, indicando su fecha, sprint o evaluación y una breve descripción del avance.
-- Conservar las capturas anteriores para poder comparar el progreso.
+Las cinco imágenes de [`capturas/`](capturas/) se tomaron el **18 de noviembre de 2026** a partir de una reconstrucción en Trello. Los cortes se organizaron por funcionalidad usando el historial de Git y las tarjetas del proyecto. La fecha corresponde a la toma de las imágenes. Los estados representan una estimación del avance en cada corte y las validaciones pendientes se indican en el registro.
 
 ### Registro de capturas
 
-Todavía no hay capturas registradas. Al incorporar la primera, reemplazar la fila pendiente por un enlace al archivo real.
-
-| Fecha | Sprint o evaluación | Captura                 | Avance y pendientes relevantes |
-| ----- | ------------------- | ----------------------- | ------------------------------ |
-| —     | —                   | Pendiente de incorporar | —                              |
+| Sprint | Foco del corte | Captura | Avance y pendientes relevantes |
+| ------ | -------------- | ------- | ------------------------------ |
+| 1 | Base móvil y acceso | [Sprint 1](capturas/sprint_1.png) | Base del cliente Expo en Terminado. Inicio de sesión por roles e integración con Supabase en progreso. Recuperación de credenciales y navegación en revisión. |
+| 2 | Inicio del técnico, máquinas, QR e historial | [Sprint 2](capturas/sprint_2.png) | Navegación en Terminado. Primeras pantallas de inicio, catálogo e historial en progreso. Escáner QR en revisión. |
+| 3 | Panel web, monitor y catálogos | [Sprint 3](capturas/sprint_3.png) | Base del panel web, listado móvil y generación y lectura de QR en Terminado. Indicadores, monitor y locales en revisión. Administración de máquinas en progreso. |
+| 4 | Pautas, mantenciones e informes | [Sprint 4](capturas/sprint_4.png) | Pautas dinámicas y consulta de plantillas en Terminado. Historial móvil, asignación de plantillas y exportación en revisión. Feed de mantenciones en progreso. |
+| 5 | Operación sin conexión y ajustes finales | [Sprint 5](capturas/sprint_5.png) | Guardado local, reintentos e historial de pendientes implementados. Sincronización en revisión, pendiente de validar en dispositivos reales. Captura de fotos en la pauta móvil y actualización automática del feed en progreso. |

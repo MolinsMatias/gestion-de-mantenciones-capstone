@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
-import { BuildingStorefrontIcon, XMarkIcon } from '@heroicons/vue/24/outline'
+import Dialog from 'primevue/dialog'
+import { BuildingStorefrontIcon } from '@heroicons/vue/24/outline'
 import LocalInfoView from './LocalInfoView.vue'
 import LocalAccionesEstado from './LocalAccionesEstado.vue'
 import LocalEditForm, { type GuardarLocalEdicionPayload } from './LocalEditForm.vue'
@@ -10,7 +11,6 @@ import type { MaquinaMonitor } from '../../types/monitor'
 
 const props = defineProps<{ localId: string; maquinasActivas: MaquinaMonitor[] }>()
 const emit = defineEmits<{ cerrar: []; actualizado: [local: LocalRegistro]; eliminado: [id: string] }>()
-const dialogo = ref<HTMLDialogElement | null>(null)
 const local = ref<LocalDetalle | null>(null)
 const editando = ref(false)
 const cargando = ref(false)
@@ -19,7 +19,6 @@ const error = ref('')
 const mensaje = ref('')
 let controller: AbortController | null = null
 let desmontado = false
-let focoAnterior: HTMLElement | null = null
 
 async function cargar(): Promise<void> {
   if (cargando.value || editando.value || guardando.value) return
@@ -98,66 +97,62 @@ function cerrar(): void {
 }
 
 onMounted(() => {
-  focoAnterior = document.activeElement instanceof HTMLElement ? document.activeElement : null
-  dialogo.value?.showModal()
   void cargar()
 })
 
 onBeforeUnmount(() => {
   desmontado = true
   controller?.abort()
-  dialogo.value?.close()
-  if (focoAnterior?.isConnected) focoAnterior.focus({ preventScroll: true })
 })
 </script>
 
 <template>
-  <Teleport to="body">
-    <dialog ref="dialogo" aria-labelledby="detalle-local-titulo"
-      class="m-auto w-[calc(100%_-_2rem)] max-w-2xl overflow-hidden rounded-3xl border-0 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/60"
-      @cancel.prevent="cerrar">
-      <div class="flex max-h-[90dvh] min-h-0 flex-col">
-        <header class="flex shrink-0 items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-6">
-          <div class="flex min-w-0 items-center gap-3">
-            <BuildingStorefrontIcon class="size-7 shrink-0 text-blue-600" aria-hidden="true" />
-            <h2 id="detalle-local-titulo" class="text-xl font-bold">
-              {{ editando ? 'Editar local' : 'Información del local' }}
-            </h2>
-          </div>
-          <button type="button" aria-label="Cerrar ficha" :disabled="guardando"
-            class="shrink-0 rounded-lg p-2 hover:bg-slate-100 disabled:opacity-50" @click="cerrar">
-            <XMarkIcon class="size-5" aria-hidden="true" />
-          </button>
-        </header>
-
-        <div class="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-5 sm:p-6">
-          <p v-if="cargando" role="status" class="text-sm text-slate-500">Cargando información del local…</p>
-          <p v-if="mensaje" role="status" class="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{{ mensaje }}
-          </p>
-          <p v-if="error" role="alert" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>
-
-          <template v-if="local">
-            <LocalEditForm v-if="editando" :local="local" :guardando="guardando" @cancelar="cancelarEdicion"
-              @guardar="guardar" />
-            <template v-else>
-              <LocalInfoView :local="local" :maquinas-activas="props.maquinasActivas" />
-              <LocalAccionesEstado v-if="!cargando" :key="local.id" :id="local.id" :activo="local.activo"
-                @actualizado="alCambiarEstadoLocal" @cerrado="alCerrarLocal">
-                <template #acciones-ficha>
-                  <button type="button"
-                    class="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-                    @click="cargar">Recargar</button>
-                  <button type="button"
-                    class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                    @click="iniciarEdicion">Editar</button>
-                </template>
-              </LocalAccionesEstado>
-            </template>
-          </template>
-          <button v-else-if="!cargando" type="button" class="text-sm font-semibold text-blue-600 underline"
-            @click="cargar">Reintentar</button>
-        </div>
+  <Dialog :visible="true" modal block-scroll :draggable="false" :closable="!guardando"
+    :close-on-escape="!guardando" :dismissable-mask="!guardando"
+    :style="{ width: 'min(44rem, calc(100vw - 2rem))', maxHeight: '90dvh' }"
+    @update:visible="visible => { if (!visible) cerrar() }">
+    <template #header>
+      <div class="flex items-center gap-3">
+        <BuildingStorefrontIcon class="size-7 shrink-0 text-blue-600" aria-hidden="true" />
+        <h2 id="detalle-local-titulo" class="text-xl font-bold text-slate-900">
+          {{ editando ? 'Editar local' : 'Información del local' }}
+        </h2>
       </div>
-    </dialog>
-  </Teleport>
+    </template>
+
+    <div class="space-y-5 py-2">
+      <p v-if="cargando" role="status" class="text-sm text-slate-500">Cargando información del local…</p>
+      <p v-if="mensaje" role="status" class="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{{ mensaje }}</p>
+      <p v-if="error" role="alert" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>
+
+      <template v-if="local">
+        <LocalEditForm v-if="editando" :local="local" :guardando="guardando" @cancelar="cancelarEdicion"
+          @guardar="guardar" />
+        <template v-else>
+          <LocalInfoView :local="local" :maquinas-activas="props.maquinasActivas" />
+          <LocalAccionesEstado v-if="!cargando" :key="local.id" :id="local.id" :activo="local.activo"
+            @actualizado="alCambiarEstadoLocal" @cerrado="alCerrarLocal">
+            <template #acciones-ficha>
+              <button type="button"
+                class="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+                @click="cargar">Recargar</button>
+              <button type="button"
+                class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                @click="iniciarEdicion">Editar</button>
+            </template>
+          </LocalAccionesEstado>
+        </template>
+      </template>
+      <button v-else-if="!cargando" type="button" class="text-sm font-semibold text-blue-600 underline"
+        @click="cargar">Reintentar</button>
+    </div>
+
+    <template #footer>
+      <button type="button" :disabled="guardando"
+        class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        @click="cerrar">
+        Cerrar
+      </button>
+    </template>
+  </Dialog>
 </template>

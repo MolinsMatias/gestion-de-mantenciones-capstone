@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onUnmounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
+import Dialog from 'primevue/dialog'
 import { ArrowPathIcon, ExclamationTriangleIcon, PlusIcon } from '@heroicons/vue/24/outline'
 import CambiarLocalModal from '../components/maquina/CambiarLocalModal.vue'
 import { obtenerOpcionesCrearMaquina } from '../services/crear-maquina.service'
@@ -43,7 +44,7 @@ const mostrandoCargaInicial = useCargaInicial(async () => {
   await catalogo.cargar()
 })
 
-const dialogoBaja = ref<HTMLDialogElement | null>(null)
+const mostrandoFicha = ref(false)
 const maquinaBaja = ref<MaquinaDetalle | null>(null)
 const procesandoBaja = ref(false)
 
@@ -80,6 +81,7 @@ function cerrarFicha(): void {
   cargandoDestinos.value = false
   mostrandoCambioLocal.value = false
   maquinaBaja.value = null
+  mostrandoFicha.value = false
 }
 
 async function alReasignarDesdeFicha(id: string, destinoId: string): Promise<void> {
@@ -97,20 +99,24 @@ async function alReasignarDesdeFicha(id: string, destinoId: string): Promise<voi
 }
 
 function abrirBaja(): void {
-  if (!maquinaSeleccionada.value || cargando.value || dialogoBaja.value?.open) return
+  if (!maquinaSeleccionada.value || cargando.value || mostrandoFicha.value) return
   maquinaBaja.value = { ...maquinaSeleccionada.value }
   mensajeFicha.value = ''
   errorFicha.value = ''
   mensajeExito.value = ''
-  dialogoBaja.value?.showModal()
+  mostrandoFicha.value = true
 }
 
 function cerrarBaja(): void {
-  if (!procesandoBaja.value && !mostrandoCambioLocal.value) dialogoBaja.value?.close()
+  if (!procesandoBaja.value && !mostrandoCambioLocal.value) {
+    mostrandoFicha.value = false
+    cerrarFicha()
+  }
 }
 
 async function alCompletarBaja(accion: 'desactivar' | 'reactivar' | 'retirar', id: string): Promise<void> {
-  dialogoBaja.value?.close()
+  mostrandoFicha.value = false
+  cerrarFicha()
   mensajeExito.value = {
     desactivar: 'Máquina desactivada. Puedes encontrarla en Todos o Inactivas.',
     reactivar: 'Máquina reactivada.',
@@ -190,32 +196,35 @@ onUnmounted(() => { solicitudDestinos?.abort(); catalogo.limpiar() })
     <p class="mt-6 text-xs leading-relaxed text-slate-500">Activo e inactivo corresponden al registro del catálogo. El
       estado operativo se obtiene de las mantenciones.</p>
   </template>
-  <dialog ref="dialogoBaja" aria-labelledby="titulo-baja-maquina"
-    class="m-auto w-[calc(100%_-_2rem)] max-w-2xl overflow-hidden rounded-2xl bg-white p-0 shadow-xl backdrop:bg-slate-950/60"
-    @cancel.prevent="cerrarBaja" @close="cerrarFicha">
-    <div class="flex max-h-[90dvh] min-h-0 flex-col">
-      <header class="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 p-4">
-        <h2 id="titulo-baja-maquina" class="font-bold">Ficha de la máquina</h2>
-        <button type="button" autofocus :disabled="procesandoBaja" class="text-sm font-semibold disabled:opacity-50"
-          @click="cerrarBaja">Cerrar</button>
-      </header>
-      <div class="min-h-0 space-y-5 overflow-y-auto overscroll-contain p-5 sm:p-6">
-        <MaquinaFichaDatos v-if="maquinaBaja" :maquina="maquinaBaja" />
-        <p v-if="mensajeFicha" role="status" class="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{{
-          mensajeFicha
-        }}</p>
-        <p v-if="errorFicha" role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-700">{{ errorFicha }}</p>
-        <button v-if="maquinaBaja" type="button" :disabled="procesandoBaja || cargandoDestinos || cargando"
-          class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50"
-          @click="abrirCambioLocal">{{ cargandoDestinos ? 'Cargando locales…' : 'Cambiar local' }}</button>
-        <fieldset :disabled="cargandoDestinos || cargando" class="min-w-0 border-0 p-0">
-          <MaquinaAccionesBaja v-if="maquinaBaja" :key="maquinaBaja.id" :id="maquinaBaja.id"
-            :nombre="maquinaBaja.nombre" :activo="maquinaBaja.activo" @completado="alCompletarBaja"
-            @ocupado="procesandoBaja = $event" />
-        </fieldset>
-      </div>
+  <Dialog v-model:visible="mostrandoFicha" modal block-scroll :draggable="false"
+    header="Ficha de la máquina" :closable="!procesandoBaja" :close-on-escape="!procesandoBaja"
+    :dismissable-mask="!procesandoBaja"
+    :style="{ width: 'min(44rem, calc(100vw - 2rem))', maxHeight: '90dvh' }"
+    @hide="cerrarFicha">
+    <div class="space-y-5 py-2">
+      <MaquinaFichaDatos v-if="maquinaBaja" :maquina="maquinaBaja" />
+      <p v-if="mensajeFicha" role="status" class="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{{
+        mensajeFicha
+      }}</p>
+      <p v-if="errorFicha" role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-700">{{ errorFicha }}</p>
+      <button v-if="maquinaBaja" type="button" :disabled="procesandoBaja || cargandoDestinos || cargando"
+        class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50"
+        @click="abrirCambioLocal">{{ cargandoDestinos ? 'Cargando locales…' : 'Cambiar local' }}</button>
+      <fieldset :disabled="cargandoDestinos || cargando" class="min-w-0 border-0 p-0">
+        <MaquinaAccionesBaja v-if="maquinaBaja" :key="maquinaBaja.id" :id="maquinaBaja.id"
+          :nombre="maquinaBaja.nombre" :activo="maquinaBaja.activo" @completado="alCompletarBaja"
+          @ocupado="procesandoBaja = $event" />
+      </fieldset>
     </div>
-  </dialog>
+
+    <template #footer>
+      <button type="button" :disabled="procesandoBaja"
+        class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+        @click="cerrarBaja">
+        Cerrar
+      </button>
+    </template>
+  </Dialog>
   <CambiarLocalModal v-if="mostrandoCambioLocal && maquinaBaja" :key="maquinaBaja.id" :maquina="maquinaBaja"
     :locales="destinosCambioLocal" @cancelar="mostrandoCambioLocal = false" @reasignada="alReasignarDesdeFicha" />
   <CategoriasMaquinaModal v-if="mostrarCategorias" @cerrar="mostrarCategorias = false"
